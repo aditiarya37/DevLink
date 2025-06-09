@@ -1,7 +1,8 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const cors = require('cors')
 const connectDB = require('./config/db');
-const { mongo, default: mongoose } = require('mongoose');
+const mongoose = require('mongoose');
 
 dotenv.config();
 
@@ -9,11 +10,19 @@ const app = express();
 
 connectDB();
 
+const corsOptions = {
+    origin: 'http://localhost:5173',
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
 const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 
 app.get('/api/test', (req,res) => {
+    console.log('--- Request received for /api/text ---');
     res.json({message: 'Backend running successfully!'});
 });
 
