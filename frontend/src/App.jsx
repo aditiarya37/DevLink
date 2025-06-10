@@ -1,19 +1,25 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+
 function App() {
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-center p-4">
-      <h1 className="text-5xl font-bold text-cyan-400 mb-4">
-        DevLink
-      </h1>
-      <p className="text-xl text-gray-300">
-        Connecting Developers, One Line of Code at a Time.
-      </p>
-      <div className="mt-8">
-        <button className="bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-150 ease-in-out">
-          Get Started
-        </button>
+    <Router>
+      <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+        <Navbar />
+        <main className="flex-grow container mx-auto px-4 py-8">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+          </Routes>
+        </main>
       </div>
-    </div>
-  )
+    </Router>
+  );
 }
 
-export default App
+export default App;

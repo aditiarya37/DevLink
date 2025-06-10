@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const cors = require('cors')
 const connectDB = require('./config/db');
 const mongoose = require('mongoose');
+const authRoutes = require('./routes/authRoutes');
 
 dotenv.config();
 
@@ -25,6 +26,8 @@ app.get('/api/test', (req,res) => {
     console.log('--- Request received for /api/text ---');
     res.json({message: 'Backend running successfully!'});
 });
+
+app.use('/api/auth', authRoutes);
 
 app.get('/api/db-status', (req,res) => {
     const dbState = mongoose.connection.readyState;
