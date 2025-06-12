@@ -2,20 +2,41 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 
-const createPost = async (req, res) => {
-  const { content, tags } = req.body;
-  if (!content) {
+const createPost = async (req, res, next) => {
+  const { content, tags, codeSnippet } = req.body;
+
+  if (!content && (!codeSnippet || !codeSnippet.code)) { 
     res.status(400);
-    throw new Error('Post content is required');
+    throw new Error('Post must include content or a code snippet.');
   }
+  if (codeSnippet && codeSnippet.code && !codeSnippet.language) {
+      res.status(400);
+      throw new Error('Please specify a language for the code snippet.');
+  }
+
+
   try {
-    const post = new Post({
+    const postFields = {
       user: req.user._id,
-      content,
+      content: content || '', 
       tags: tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [],
-    });
+    };
+
+    if (codeSnippet && codeSnippet.code) {
+      postFields.codeSnippet = {
+        language: codeSnippet.language ? codeSnippet.language.trim().toLowerCase() : 'plaintext',
+        code: codeSnippet.code, 
+      };
+    } else if (codeSnippet && !codeSnippet.code && codeSnippet.language) {
+        res.status(400);
+        throw new Error('Code content is missing for the specified language.');
+    }
+
+
+    const post = new Post(postFields);
     const createdPost = await post.save();
     await createdPost.populate('user', 'username displayName profilePicture');
+
     res.status(201).json(createdPost);
   } catch (error) {
     next(error);
@@ -103,9 +124,10 @@ const getPostById = async (req, res, next) => {
 };
 
 const updatePost = async (req, res, next) => {
-  const { content, tags } = req.body;
+  const { content, tags, codeSnippet } = req.body;
   try {
     const post = await Post.findById(req.params.id);
+
     if (!post) {
       res.status(404);
       throw new Error('Post not found');
@@ -114,10 +136,44 @@ const updatePost = async (req, res, next) => {
       res.status(401);
       throw new Error('User not authorized to update this post');
     }
-    post.content = content || post.content;
-    if (tags !== undefined) {
-         post.tags = tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [];
+
+    const newContent = content !== undefined ? content : post.content;
+    const newCode = codeSnippet && codeSnippet.code !== undefined ? codeSnippet.code : post.codeSnippet?.code;
+
+    if (!newContent && !newCode) {
+        res.status(400);
+        throw new Error('Post must include content or a code snippet after update.');
     }
+    if (codeSnippet && codeSnippet.code && (codeSnippet.language === undefined && !post.codeSnippet?.language)) {
+        res.status(400);
+        throw new Error('Please specify a language for the new/updated code snippet.');
+    }
+
+
+    if (content !== undefined) post.content = content;
+    if (tags !== undefined) {
+      post.tags = tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [];
+    }
+
+    if (codeSnippet !== undefined) {
+      if (codeSnippet.code === null || codeSnippet.code === '') { 
+        post.codeSnippet = undefined;
+      } else if (codeSnippet.code) {
+        post.codeSnippet = {
+          language: codeSnippet.language ? codeSnippet.language.trim().toLowerCase() : (post.codeSnippet?.language || 'plaintext'),
+          code: codeSnippet.code,
+        };
+      } else if (codeSnippet.language && !codeSnippet.code) {
+        if (post.codeSnippet && post.codeSnippet.code) {
+            post.codeSnippet.language = codeSnippet.language.trim().toLowerCase();
+        } else {
+            res.status(400);
+            throw new Error('Cannot set language without code content for a new snippet.');
+        }
+      }
+    }
+
+
     const updatedPost = await post.save();
     await updatedPost.populate('user', 'username displayName profilePicture');
     res.status(200).json(updatedPost);
@@ -203,8 +259,8 @@ const toggleLikePost = async (req, res, next) => {
 };
 
 const searchPosts = async (req, res, next) => {
-  const keyword = req.query.q; // Search keyword for content
-  const tagsQuery = req.query.tags; // Comma-separated string of tags
+  const keyword = req.query.q; 
+  const tagsQuery = req.query.tags;
 
   const limit = parseInt(req.query.limit) || 10;
   const page = parseInt(req.query.page) || 1;
@@ -213,29 +269,17 @@ const searchPosts = async (req, res, next) => {
   let queryConditions = [];
 
   if (keyword && keyword.trim() !== '') {
-    // Case-insensitive regex search for content
     queryConditions.push({ content: new RegExp(keyword.trim(), 'i') });
   }
 
   if (tagsQuery && tagsQuery.trim() !== '') {
     const tagsArray = tagsQuery.split(',').map(tag => tag.trim().toLowerCase());
-    // Find posts that have ALL the specified tags (use $all)
-    // Or, if you want posts that have ANY of the specified tags, use $in:
-    // queryConditions.push({ tags: { $in: tagsArray } });
     if (tagsArray.length > 0) {
       queryConditions.push({ tags: { $all: tagsArray } });
     }
   }
 
-  // If no search criteria provided, maybe return recent posts or an empty set
   if (queryConditions.length === 0) {
-    // Option 1: Return empty
-    // return res.status(200).json({ posts: [], page: 1, pages: 0, count: 0 });
-    // Option 2: Return all posts (like a global feed, but might be confusing for a 'search' endpoint)
-    // For now, let's return empty if no criteria. Or you can decide to make at least one param required.
-    // We can rely on the frontend to ensure at least one search param is sent.
-    // If both q and tags are empty, this will effectively be an empty $and query which might return all.
-    // Let's explicitly handle the case of no criteria.
     if (!keyword && !tagsQuery) {
         return res.status(200).json({
             posts: [],
@@ -248,14 +292,12 @@ const searchPosts = async (req, res, next) => {
   }
 
   const finalQuery = queryConditions.length > 0 ? { $and: queryConditions } : {};
-  // If finalQuery is {}, it fetches all posts. We want to avoid this if no criteria.
-  // The check above handles this. So if queryConditions is empty, it means at least one param was there but might have been just spaces.
 
   try {
     const count = await Post.countDocuments(finalQuery);
     const posts = await Post.find(finalQuery)
       .populate('user', 'username displayName profilePicture')
-      .sort({ createdAt: -1 }) // Or sort by relevance if using text search
+      .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip);
 

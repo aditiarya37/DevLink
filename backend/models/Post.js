@@ -7,11 +7,22 @@ const PostSchema = new mongoose.Schema(
       required: true,
       ref: 'User',
     },
-    content: {
+    content: { 
       type: String,
       required: [true, 'Post content cannot be empty'],
       trim: true,
       maxlength: [2000, 'Post content cannot exceed 2000 characters'],
+    },
+    codeSnippet: {
+      language: {
+        type: String,
+        trim: true,
+        lowercase: true,
+      },
+      code: {
+        type: String,
+        trim: true, 
+      }
     },
     tags: [
       {
@@ -42,7 +53,7 @@ const PostSchema = new mongoose.Schema(
 
 PostSchema.index({ user: 1, createdAt: -1 });
 PostSchema.index({ tags: 1 });
-PostSchema.index({ content: 'text', tags: 1 });
+PostSchema.index({ content: 'text' }); 
 
 const Post = mongoose.model('Post', PostSchema);
 
