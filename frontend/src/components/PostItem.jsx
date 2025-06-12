@@ -1,10 +1,17 @@
+// frontend/src/components/PostItem.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // Import useAuth to check current user
 
-const PostItem = ({ post }) => {
+// Add onEdit and onDelete props (callbacks)
+const PostItem = ({ post, onEdit, onDelete }) => {
+  const { user: currentUser, isAuthenticated } = useAuth(); // Get current logged-in user
+
   if (!post || !post.user) {
     return <div className="bg-gray-800 p-4 rounded-lg shadow-md animate-pulse">Loading post data...</div>;
   }
+
+  const isAuthor = isAuthenticated && currentUser && currentUser._id === post.user._id;
 
   const formatDate = (dateString) => {
     try {
@@ -17,24 +24,53 @@ const PostItem = ({ post }) => {
     }
   };
 
+  // Handler for delete confirmation (can be more sophisticated with a modal)
+  const handleDeleteClick = () => {
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      if (onDelete) {
+        onDelete(post._id);
+      }
+    }
+  };
+
   return (
     <div className="bg-gray-800 p-5 rounded-lg shadow-xl mb-6">
       <div className="flex items-start mb-3">
-        <Link to={`/profile/${post.user.username}`}>
+        <Link to={`/profile/${post.user.username.toLowerCase()}`}>
           <img
             src={post.user.profilePicture || `https://via.placeholder.com/100/CBD5E0/1A202C?text=${post.user.username.charAt(0).toUpperCase()}`}
             alt={post.user.displayName || post.user.username}
             className="w-12 h-12 rounded-full mr-4 border-2 border-sky-500 object-cover"
           />
         </Link>
-        <div>
-          <Link to={`/profile/${post.user.username}`} className="font-semibold text-sky-400 hover:text-sky-300 text-lg">
+        <div className="flex-grow">
+          <Link to={`/profile/${post.user.username.toLowerCase()}`} className="font-semibold text-sky-400 hover:text-sky-300 text-lg">
             {post.user.displayName || post.user.username}
           </Link>
           <p className="text-gray-500 text-xs">
-            @{post.user.username} · {formatDate(post.createdAt)}
+            @{post.user.username.toLowerCase()} · {formatDate(post.createdAt)}
           </p>
         </div>
+        {/* Edit/Delete Dropdown or Buttons for Author */}
+        {isAuthor && (
+          <div className="relative">
+            {/* Simple buttons for now. Could be a dropdown menu. */}
+            <button
+                onClick={() => onEdit && onEdit(post)} // Pass the whole post object for editing
+                className="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-gray-700 mr-2"
+                aria-label="Edit post"
+            >
+                Edit
+            </button>
+            <button
+                onClick={handleDeleteClick}
+                className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-gray-700"
+                aria-label="Delete post"
+            >
+                Delete
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="text-gray-200 mb-4 whitespace-pre-wrap break-words">
@@ -46,7 +82,7 @@ const PostItem = ({ post }) => {
           {post.tags.map((tag, index) => (
             <Link
               key={index}
-              to={`/tags/${tag}`} 
+              to={`/tags/${tag}`}
               className="inline-block bg-gray-700 hover:bg-gray-600 text-sky-300 text-xs font-semibold mr-2 px-2.5 py-1 rounded-full mb-1"
             >
               #{tag}

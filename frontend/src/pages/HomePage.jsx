@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import CreatePost from '../components/CreatePost';
-import PostItem from '../components/PostItem'; 
+import PostItem from '../components/PostItem';
+import EditPostModal from '../components/EditPostModal';
 
 const HomePage = () => {
-  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const { isAuthenticated, user, loading: authLoading, token } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [postsError, setPostsError] = useState('');
+  const [editingPost, setEditingPost] = useState(null);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -22,21 +24,48 @@ const HomePage = () => {
     } catch (err) {
       console.error('Error fetching posts:', err.response ? err.response.data : err.message);
       setPostsError(err.response?.data?.message || 'Could not load posts.');
-      setPosts([]); 
+      setPosts([]);
     } finally {
       setLoadingPosts(false);
     }
   };
 
   useEffect(() => {
-    fetchPosts(); 
-  }, [API_BASE_URL]); 
+    fetchPosts();
+  }, [API_BASE_URL]);
 
   const handlePostCreated = (newPost) => {
-    console.log('New post created, adding to feed:', newPost);
     setPosts(prevPosts => [newPost, ...prevPosts]);
   };
 
+  const handlePostDelete = async (postId) => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      await axios.delete(`${API_BASE_URL}/posts/${postId}`, config);
+      setPosts(prevPosts => prevPosts.filter(post => post._id !== postId));
+    } catch (err) {
+      console.error("Error deleting post:", err.response ? err.response.data : err.message);
+      alert(err.response?.data?.message || "Failed to delete post.");
+    }
+  };
+
+  const handleOpenEditModal = (post) => {
+    setEditingPost(post);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingPost(null);
+  };
+
+  const handlePostUpdated = (updatedPost) => {
+    setPosts(prevPosts =>
+      prevPosts.map(p => (p._id === updatedPost._id ? updatedPost : p))
+    );
+  };
 
   if (authLoading && isAuthenticated === null) {
     return (
@@ -107,11 +136,24 @@ const HomePage = () => {
         {!loadingPosts && !postsError && posts.length > 0 && (
           <div className="space-y-6">
             {posts.map((post) => (
-              <PostItem key={post._id} post={post} />
+              <PostItem
+                key={post._id}
+                post={post}
+                onEdit={handleOpenEditModal}
+                onDelete={handlePostDelete}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {editingPost && (
+        <EditPostModal
+          postToEdit={editingPost}
+          onClose={handleCloseEditModal}
+          onPostUpdated={handlePostUpdated}
+        />
+      )}
     </div>
   );
 };
