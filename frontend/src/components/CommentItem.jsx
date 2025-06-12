@@ -1,70 +1,165 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; 
+import React, { useState, useEffect, useCallback } from 'react'; 
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
-const CommentItem = ({ comment, postId, onDeleteComment, onEditComment }) => {
-  const { user: currentUser, isAuthenticated } = useAuth();
+const CommentItem = ({ comment: initialComment, postId, onDeleteComment, onEditComment, onReplyToComment }) => {
+  const { user: currentUser, isAuthenticated, token } = useAuth();
+  
+  const [comment, setComment] = useState(initialComment); 
+  const [replies, setReplies] = useState([]);
+  const [showReplies, setShowReplies] = useState(false);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [replyError, setReplyError] = useState('');
 
-  if (!comment || !comment.user) {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  useEffect(() => {
+    setComment(initialComment); 
+  }, [initialComment]);
+
+
+  const isAuthor = isAuthenticated && currentUser && currentUser._id === comment.user?._id;
+  const isDeletedPlaceholder = comment.status === 'deleted';
+
+  const formatDate = (dateString) => { 
+    try { return new Date(dateString).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'}); } catch (error) { return "Invalid date"; }
+  };
+
+  const handleDelete = () => { 
+    if (window.confirm('Are you sure you want to delete this comment?')) { onDeleteComment(comment._id, postId); }
+  };
+
+  const fetchReplies = useCallback(async () => {
+    if (!comment?._id || !postId) return;
+    setLoadingReplies(true);
+    setReplyError('');
+    try {
+      const response = await axios.get(`${API_BASE_URL}/posts/${postId}/comments/${comment._id}/replies`);
+      setReplies(response.data.replies || []);
+    } catch (err) {
+      console.error("Error fetching replies:", err);
+      setReplyError(err.response?.data?.message || "Could not load replies.");
+    } finally {
+      setLoadingReplies(false);
+    }
+  }, [comment?._id, postId, API_BASE_URL]);
+
+  useEffect(() => {
+    if (showReplies && comment.replyCount > 0 && replies.length === 0) { 
+      fetchReplies();
+    }
+  }, [showReplies, comment?.replyCount, replies.length, fetchReplies]);
+
+
+  const handleToggleReplies = () => {
+    setShowReplies(!showReplies);
+  };
+
+  const handleDeleteReply = (replyId) => {
+    setReplies(prevReplies => prevReplies.filter(r => r._id !== replyId));
+    setComment(prev => ({ ...prev, replyCount: Math.max(0, (prev.replyCount || 1) - 1) }));
+  };
+
+  const handleEditReply = (replyToEdit) => {
+    onEditComment(replyToEdit, postId); 
+  };
+  
+  const handleNewReplyAddedToThisComment = (newReply) => {
+    setReplies(prevReplies => [newReply, ...prevReplies]);
+    setComment(prev => ({ ...prev, replyCount: (prev.replyCount || 0) + 1 }));
+    setShowReplies(true);
+  };
+
+
+  if (!comment) { 
     return <div className="text-sm text-gray-400 animate-pulse">Loading comment...</div>;
   }
+  
+  const authorDisplayName = comment.user ? (comment.user.displayName || comment.user.username) : '[deleted user]';
+  const authorUsername = comment.user ? comment.user.username.toLowerCase() : 'deleted';
+  const authorProfilePic = comment.user ? (comment.user.profilePicture || `https://ui-avatars.com/api/?name=${comment.user.username.charAt(0).toUpperCase()}&background=random&color=fff&size=80&font-size=0.33&length=1`) : `https://ui-avatars.com/api/?name=X&background=gray&color=fff&size=80&font-size=0.33&length=1`;
 
-  const isAuthor = isAuthenticated && currentUser && currentUser._id === comment.user._id;
-
-  const formatDate = (dateString) => {
-    try {
-      return new Date(dateString).toLocaleString(undefined, {
-        month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
-      });
-    } catch (error) { return "Invalid date"; }
-  };
-
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this comment?')) {
-      onDeleteComment(comment._id, postId);
-    }
-  };
 
   return (
-    <div className="flex items-start space-x-3 py-3 border-b border-gray-700 last:border-b-0">
-      <Link to={`/profile/${comment.user.username.toLowerCase()}`}>
-        <img
-          src={comment.user.profilePicture || `https://ui-avatars.com/api/?name=${comment.user.username.charAt(0).toUpperCase()}&background=random&color=fff&size=80&font-size=0.33&length=1`}
-          alt={comment.user.displayName || comment.user.username}
-          className="w-9 h-9 rounded-full object-cover border border-gray-600"
-        />
-      </Link>
-      <div className="flex-1">
-        <div className="flex items-center justify-between">
-            <div>
-                <Link to={`/profile/${comment.user.username.toLowerCase()}`} className="text-sm font-semibold text-sky-400 hover:underline">
-                    {comment.user.displayName || comment.user.username}
-                </Link>
+    <div className={`py-3 ${comment.depth > 0 ? `ml-${Math.min(comment.depth * 4, 12)} pl-3 border-l-2 border-gray-700` : ''}`}>
+      <div className="flex items-start space-x-3">
+        {!isDeletedPlaceholder && comment.user && (
+          <Link to={`/profile/${authorUsername}`}>
+            <img
+              src={authorProfilePic}
+              alt={authorDisplayName}
+              className="w-8 h-8 rounded-full object-cover border border-gray-600" 
+            />
+          </Link>
+        )}
+        {isDeletedPlaceholder && ( 
+            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 text-sm">X</div>
+        )}
+
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+              <div>
+                {!isDeletedPlaceholder && comment.user ? (
+                    <Link to={`/profile/${authorUsername}`} className="text-xs font-semibold text-sky-400 hover:underline">
+                        {authorDisplayName}
+                    </Link>
+                ) : (
+                    <span className="text-xs font-semibold text-gray-500">{authorDisplayName}</span>
+                )}
                 <span className="text-xs text-gray-500 ml-2">{formatDate(comment.createdAt)}</span>
-            </div>
-            {isAuthor && (
-            <div className="flex space-x-2">
-                <button
-                    onClick={() => onEditComment && onEditComment(comment, postId)}
-                    className="text-xs text-gray-400 hover:text-sky-300"
-                    aria-label="Edit comment"
-                >
-                    Edit
-                </button>
-                <button
-                    onClick={handleDelete}
-                    className="text-xs text-gray-400 hover:text-red-400"
-                    aria-label="Delete comment"
-                >
-                    Delete
-                </button>
-            </div>
-            )}
+              </div>
+              {!isDeletedPlaceholder && isAuthor && (
+              <div className="flex space-x-2">
+                  <button onClick={() => onEditComment && onEditComment(comment, postId)} className="text-xs text-gray-400 hover:text-sky-300">Edit</button>
+                  <button onClick={handleDelete} className="text-xs text-gray-400 hover:text-red-400">Delete</button>
+              </div>
+              )}
+          </div>
+          <p className={`text-sm mt-1 whitespace-pre-wrap break-words ${isDeletedPlaceholder ? 'text-gray-500 italic' : 'text-gray-200'}`}>
+            {comment.text}
+          </p>
+          
+          {!isDeletedPlaceholder && isAuthenticated && comment.depth < MAX_COMMENT_DEPTH && ( 
+            <button 
+              onClick={() => onReplyToComment(comment)}
+              className="text-xs text-sky-400 hover:text-sky-300 mt-1"
+            >
+              Reply
+            </button>
+          )}
+          {comment.replyCount > 0 && (
+             <button 
+                onClick={handleToggleReplies} 
+                className="text-xs text-gray-400 hover:text-gray-200 mt-1 ml-2"
+             >
+                {showReplies ? 'Hide' : 'View'} {comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}
+             </button>
+          )}
         </div>
-        <p className="text-sm text-gray-200 mt-1 whitespace-pre-wrap break-words">{comment.text}</p>
       </div>
+
+      {showReplies && (
+        <div className="mt-2">
+          {loadingReplies && <p className="text-xs text-gray-400 ml-8">Loading replies...</p>}
+          {replyError && <p className="text-xs text-red-400 ml-8">{replyError}</p>}
+          {!loadingReplies && replies.length > 0 && (
+            replies.map(reply => (
+              <CommentItem 
+                key={reply._id}
+                comment={reply}
+                postId={postId} 
+                onDeleteComment={handleDeleteReply}
+                onEditComment={handleEditReply}    
+                onReplyToComment={onReplyToComment} 
+              />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 };
+const MAX_COMMENT_DEPTH = 5; 
 
 export default CommentItem;
