@@ -123,6 +123,42 @@ const getPostById = async (req, res, next) => {
   }
 };
 
+const getPostsByTag = async (req, res, next) => {
+  try {
+    const tagName = req.params.tagName.toLowerCase(); 
+    const pageSize = 10;
+    const page = Number(req.query.pageNumber) || 1;
+
+    const queryOptions = { tags: tagName }; 
+
+    const count = await Post.countDocuments(queryOptions);
+    const posts = await Post.find(queryOptions)
+      .populate('user', 'username displayName profilePicture')
+      .sort({ createdAt: -1 }) 
+      .limit(pageSize)
+      .skip(pageSize * (page - 1));
+
+    if (!posts || posts.length === 0) {
+      return res.status(200).json({
+        message: `No posts found for tag: #${tagName}`,
+        posts: [],
+        page,
+        pages: 0,
+        count: 0,
+      });
+    }
+
+    res.status(200).json({
+      posts,
+      page,
+      pages: Math.ceil(count / pageSize),
+      count,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updatePost = async (req, res, next) => {
   const { content, tags, codeSnippet } = req.body;
   try {
@@ -317,6 +353,7 @@ module.exports = {
   getFeedPosts,
   getGlobalFeedPosts,
   getPostById,
+  getPostsByTag,
   updatePost,
   deletePost,
   getPostsByUserId,

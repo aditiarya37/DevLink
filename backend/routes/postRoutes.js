@@ -9,6 +9,7 @@ const {
   getPostsByUserId,
   toggleLikePost,
   searchPosts,
+  getPostsByTag,
 } = require('../controllers/postController');
 const { protect } = require('../middleware/authMiddleware'); 
 
@@ -25,6 +26,8 @@ router.get('/', protect, getFeedPosts);
 router.get('/global', getGlobalFeedPosts);
 
 router.get('/:id', getPostById);
+
+router.get('/tag/:tagName', getPostsByTag);
 
 router.get('/user/:userId', getPostsByUserId);
 
