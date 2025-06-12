@@ -1,13 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react'; 
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import CreatePost from '../components/CreatePost'; 
+import CreatePost from '../components/CreatePost';
+import PostItem from '../components/PostItem'; 
 
 const HomePage = () => {
-  const { isAuthenticated, user, loading: authLoading } = useAuth(); 
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  const [posts, setPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [postsError, setPostsError] = useState('');
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  const fetchPosts = async (pageNum = 1) => {
+    setLoadingPosts(true);
+    setPostsError('');
+    try {
+      const response = await axios.get(`${API_BASE_URL}/posts?pageNumber=${pageNum}`);
+      setPosts(response.data.posts);
+    } catch (err) {
+      console.error('Error fetching posts:', err.response ? err.response.data : err.message);
+      setPostsError(err.response?.data?.message || 'Could not load posts.');
+      setPosts([]); 
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts(); 
+  }, [API_BASE_URL]); 
 
   const handlePostCreated = (newPost) => {
-    console.log('New post created in HomePage:', newPost);
+    console.log('New post created, adding to feed:', newPost);
+    setPosts(prevPosts => [newPost, ...prevPosts]);
   };
 
 
@@ -20,7 +47,7 @@ const HomePage = () => {
   }
 
   return (
-    <div className="container mx-auto p-4"> 
+    <div className="container mx-auto p-4 max-w-3xl">
       {isAuthenticated && user ? (
         <>
           <div className="text-center mb-8">
@@ -29,17 +56,7 @@ const HomePage = () => {
             </h1>
             <p className="text-gray-400">Share your thoughts or see what's new.</p>
           </div>
-
           <CreatePost onPostCreated={handlePostCreated} />
-
-          <div className="mt-8">
-            <h2 className="text-2xl font-semibold text-sky-300 mb-4 text-center md:text-left">Recent Posts</h2>
-            <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-                <p className="text-gray-500 italic text-center">
-                    (Posts from the community will appear here soon!)
-                </p>
-            </div>
-          </div>
         </>
       ) : (
         <div className="text-center">
@@ -73,6 +90,28 @@ const HomePage = () => {
             </div>
         </div>
       )}
+
+      <div className="mt-10">
+        <h2 className="text-2xl font-semibold text-sky-300 mb-6 text-center md:text-left">
+          {isAuthenticated ? "Your Feed" : "Recent Activity"}
+        </h2>
+        {loadingPosts && (
+          <div className="text-center text-sky-400">Loading posts...</div>
+        )}
+        {postsError && (
+          <div className="text-center text-red-500 bg-red-900 border border-red-700 p-3 rounded">{postsError}</div>
+        )}
+        {!loadingPosts && !postsError && posts.length === 0 && (
+          <div className="text-center text-gray-500 bg-gray-800 p-6 rounded-lg">No posts to show yet. Be the first to share!</div>
+        )}
+        {!loadingPosts && !postsError && posts.length > 0 && (
+          <div className="space-y-6">
+            {posts.map((post) => (
+              <PostItem key={post._id} post={post} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
