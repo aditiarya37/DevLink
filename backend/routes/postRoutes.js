@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   createPost,
-  getAllPosts,
+  getFeedPosts,
   getPostById,
   updatePost,
   deletePost,
@@ -11,7 +11,7 @@ const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-router.get('/', getAllPosts);
+router.get('/', protect, getFeedPosts);
 
 router.get('/:id', getPostById);
 

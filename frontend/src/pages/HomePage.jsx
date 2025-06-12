@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -9,13 +9,19 @@ import EditPostModal from '../components/EditPostModal';
 const HomePage = () => {
   const { isAuthenticated, user, loading: authLoading, token } = useAuth();
   const [posts, setPosts] = useState([]);
-  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [loadingPosts, setLoadingPosts] = useState(false);
   const [postsError, setPostsError] = useState('');
   const [editingPost, setEditingPost] = useState(null);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  const fetchPosts = async (pageNum = 1) => {
+  const fetchPosts = useCallback(async (pageNum = 1) => {
+    if (!isAuthenticated) { 
+        setPosts([]);
+        setLoadingPosts(false);
+        setPostsError('');
+        return;
+    }
     setLoadingPosts(true);
     setPostsError('');
     try {
@@ -23,16 +29,26 @@ const HomePage = () => {
       setPosts(response.data.posts);
     } catch (err) {
       console.error('Error fetching posts:', err.response ? err.response.data : err.message);
-      setPostsError(err.response?.data?.message || 'Could not load posts.');
+      if (err.response && err.response.status === 401) {
+        setPostsError('Your session may have expired. Please log in again to see your feed.');
+      } else {
+        setPostsError(err.response?.data?.message || 'Could not load posts.');
+      }
       setPosts([]);
     } finally {
       setLoadingPosts(false);
     }
-  };
+  }, [API_BASE_URL, isAuthenticated, token]); 
 
   useEffect(() => {
-    fetchPosts();
-  }, [API_BASE_URL]);
+    if (isAuthenticated) {
+        fetchPosts();
+    } else {
+        setPosts([]);
+        setLoadingPosts(false);
+        setPostsError('');
+    }
+  }, [isAuthenticated, fetchPosts]);
 
   const handlePostCreated = (newPost) => {
     setPosts(prevPosts => [newPost, ...prevPosts]);
@@ -120,32 +136,36 @@ const HomePage = () => {
         </div>
       )}
 
-      <div className="mt-10">
-        <h2 className="text-2xl font-semibold text-sky-300 mb-6 text-center md:text-left">
-          {isAuthenticated ? "Your Feed" : "Recent Activity"}
-        </h2>
-        {loadingPosts && (
-          <div className="text-center text-sky-400">Loading posts...</div>
-        )}
-        {postsError && (
-          <div className="text-center text-red-500 bg-red-900 border border-red-700 p-3 rounded">{postsError}</div>
-        )}
-        {!loadingPosts && !postsError && posts.length === 0 && (
-          <div className="text-center text-gray-500 bg-gray-800 p-6 rounded-lg">No posts to show yet. Be the first to share!</div>
-        )}
-        {!loadingPosts && !postsError && posts.length > 0 && (
-          <div className="space-y-6">
-            {posts.map((post) => (
-              <PostItem
-                key={post._id}
-                post={post}
-                onEdit={handleOpenEditModal}
-                onDelete={handlePostDelete}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      {isAuthenticated && ( 
+        <div className="mt-10">
+          <h2 className="text-2xl font-semibold text-sky-300 mb-6 text-center md:text-left">
+            Your Feed
+          </h2>
+          {loadingPosts && (
+            <div className="text-center text-sky-400">Loading posts...</div>
+          )}
+          {postsError && (
+            <div className="text-center text-red-500 bg-red-900 border border-red-700 p-3 rounded">{postsError}</div>
+          )}
+          {!loadingPosts && !postsError && posts.length === 0 && (
+            <div className="text-center text-gray-500 bg-gray-800 p-6 rounded-lg">
+                Your feed is empty. Follow some developers or create your first post!
+            </div>
+          )}
+          {!loadingPosts && !postsError && posts.length > 0 && (
+            <div className="space-y-6">
+              {posts.map((post) => (
+                <PostItem
+                  key={post._id}
+                  post={post}
+                  onEdit={handleOpenEditModal}
+                  onDelete={handlePostDelete}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {editingPost && (
         <EditPostModal

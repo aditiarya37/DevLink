@@ -3,38 +3,49 @@ const User = require('../models/User');
 
 const createPost = async (req, res) => {
   const { content, tags } = req.body;
-
   if (!content) {
     res.status(400);
     throw new Error('Post content is required');
   }
-
   try {
     const post = new Post({
-      user: req.user._id, 
+      user: req.user._id,
       content,
-      tags: tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [], 
+      tags: tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [],
     });
-
     const createdPost = await post.save();
     await createdPost.populate('user', 'username displayName profilePicture');
-
     res.status(201).json(createdPost);
   } catch (error) {
-    console.error('Error creating post:', error.message);
-    res.status(res.statusCode === 200 ? 500 : res.statusCode).json({ message: error.message });
+    next(error);
   }
 };
 
-const getAllPosts = async (req, res) => {
+const getFeedPosts = async (req, res, next) => {
   const pageSize = 10;
-  const page = Number(req.query.pageNumber) || 1; 
-
+  const page = Number(req.query.pageNumber) || 1;
+  let queryOptions = {};
+  
   try {
-    const count = await Post.countDocuments(); 
-    const posts = await Post.find({})
-      .populate('user', 'username displayName profilePicture') 
-      .sort({ createdAt: -1 }) 
+    const currentUserWithFollowing = await User.findById(req.user._id).select('following');
+
+    if (!currentUserWithFollowing) {
+      res.status(404);
+      throw new Error("User not found for feed generation.");
+    }
+
+    const followedUserIds = currentUserWithFollowing.following.map(id => id.toString());
+    let usersForFeedQuery = [req.user._id.toString()]; 
+    if (followedUserIds.length > 0) {
+      usersForFeedQuery = [...usersForFeedQuery, ...followedUserIds];
+    }
+    
+    queryOptions = { user: { $in: usersForFeedQuery } };
+    
+    const count = await Post.countDocuments(queryOptions);
+    const posts = await Post.find(queryOptions)
+      .populate('user', 'username displayName profilePicture')
+      .sort({ createdAt: -1 })
       .limit(pageSize)
       .skip(pageSize * (page - 1));
 
@@ -42,19 +53,18 @@ const getAllPosts = async (req, res) => {
       posts,
       page,
       pages: Math.ceil(count / pageSize),
-      count
+      count,
     });
+
   } catch (error) {
-    console.error('Error getting all posts:', error.message);
-    res.status(500).json({ message: 'Server Error while fetching posts' });
+    next(error);
   }
 };
 
-const getPostById = async (req, res) => {
+const getPostById = async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id)
                          .populate('user', 'username displayName profilePicture');
-
     if (post) {
       res.status(200).json(post);
     } else {
@@ -62,88 +72,66 @@ const getPostById = async (req, res) => {
       throw new Error('Post not found');
     }
   } catch (error) {
-    console.error(`Error getting post by ID ${req.params.id}:`, error.message);
-    const statusCode = res.statusCode === 200 ? (error.kind === 'ObjectId' ? 404 : 500) : res.statusCode;
-    res.status(statusCode).json({ message: error.message || 'Post not found' });
+    next(error);
   }
 };
 
-const updatePost = async (req, res) => {
+const updatePost = async (req, res, next) => {
   const { content, tags } = req.body;
   try {
     const post = await Post.findById(req.params.id);
-
     if (!post) {
       res.status(404);
       throw new Error('Post not found');
     }
-
     if (post.user.toString() !== req.user._id.toString()) {
       res.status(401);
       throw new Error('User not authorized to update this post');
     }
-
     post.content = content || post.content;
     if (tags !== undefined) {
          post.tags = tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [];
     }
-
     const updatedPost = await post.save();
     await updatedPost.populate('user', 'username displayName profilePicture');
     res.status(200).json(updatedPost);
-
   } catch (error) {
-    console.error(`Error updating post ${req.params.id}:`, error.message);
-    const statusCode = res.statusCode === 200 ? (error.kind === 'ObjectId' ? 404 : 500) : res.statusCode;
-    res.status(statusCode).json({ message: error.message || 'Error updating post' });
+    next(error);
   }
 };
 
-const deletePost = async (req, res) => {
+const deletePost = async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id);
-
     if (!post) {
       res.status(404);
       throw new Error('Post not found');
     }
-
     if (post.user.toString() !== req.user._id.toString()) {
       res.status(401);
       throw new Error('User not authorized to delete this post');
     }
-
-    await post.deleteOne(); 
+    await post.deleteOne();
     res.status(200).json({ message: 'Post removed successfully' });
-
   } catch (error) {
-    console.error(`Error deleting post ${req.params.id}:`, error.message);
-    const statusCode = res.statusCode === 200 ? (error.kind === 'ObjectId' ? 404 : 500) : res.statusCode;
-    res.status(statusCode).json({ message: error.message || 'Error deleting post' });
+    next(error);
   }
 };
 
-const getPostsByUserId = async (req, res) => {
+const getPostsByUserId = async (req, res, next) => {
     try {
         const posts = await Post.find({ user: req.params.userId })
             .populate('user', 'username displayName profilePicture')
             .sort({ createdAt: -1 });
-
-        if (!posts) { 
-            return res.status(200).json([]); 
-        }
         res.status(200).json(posts);
     } catch (error) {
-        console.error(`Error getting posts for user ${req.params.userId}:`, error.message);
-        const statusCode = res.statusCode === 200 ? (error.kind === 'ObjectId' ? 404 : 500) : res.statusCode;
-        res.status(statusCode).json({ message: error.message || 'Error fetching user posts' });
+        next(error);
     }
 };
 
-
 module.exports = {
   createPost,
-  getAllPosts,
+  getFeedPosts,
   getPostById,
   updatePost,
   deletePost,
