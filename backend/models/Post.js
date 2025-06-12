@@ -42,6 +42,7 @@ const PostSchema = new mongoose.Schema(
 
 PostSchema.index({ user: 1, createdAt: -1 });
 PostSchema.index({ tags: 1 });
+PostSchema.index({ content: 'text', tags: 1 });
 
 const Post = mongoose.model('Post', PostSchema);
 

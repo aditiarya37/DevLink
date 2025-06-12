@@ -8,6 +8,7 @@ const {
   deletePost,
   getPostsByUserId,
   toggleLikePost,
+  searchPosts,
 } = require('../controllers/postController');
 const { protect } = require('../middleware/authMiddleware'); 
 
@@ -16,6 +17,8 @@ const commentRouter = require('./commentRoutes');
 const router = express.Router();
 
 router.use('/:postId/comments', commentRouter);
+
+router.get('/search', searchPosts);
 
 router.get('/', protect, getFeedPosts);
 

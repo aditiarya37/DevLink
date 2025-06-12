@@ -5,10 +5,13 @@ const {
   updateUserProfile,
   followUser,
   unfollowUser,
+  searchUsers,
 } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+router.get('/search', searchUsers); 
 
 router.get('/me', protect, getMyProfile);
 

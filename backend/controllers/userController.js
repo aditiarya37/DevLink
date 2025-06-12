@@ -150,10 +150,60 @@ const unfollowUser = async (req, res, next) => {
   }
 };
 
+const searchUsers = async (req, res, next) => {
+  const searchTerm = req.query.q; // Get search term from query parameter 'q'
+  const limit = parseInt(req.query.limit) || 10; // Allow specifying limit, default 10
+  const page = parseInt(req.query.page) || 1;    // Allow specifying page
+  const skip = (page - 1) * limit;
+
+  if (!searchTerm || searchTerm.trim() === '') {
+    // Return empty array or specific message if search term is missing
+    return res.status(200).json({
+        users: [],
+        page: 1,
+        pages: 0,
+        count: 0
+    });
+  }
+
+  try {
+    // Create a regex for case-insensitive partial matching
+    const regex = new RegExp(searchTerm.trim(), 'i'); // 'i' for case-insensitive
+
+    // Search criteria: username OR displayName matches the regex
+    const query = {
+      $or: [
+        { username: regex },
+        { displayName: regex }
+        // Future: Add search by skills: { 'skills.name': regex } if skills is an array of objects
+        // Or if skills is an array of strings: { skills: regex }
+      ],
+    };
+
+    const count = await User.countDocuments(query);
+    const users = await User.find(query)
+      .select('username displayName profilePicture bio') // Select fields to return
+      .limit(limit)
+      .skip(skip)
+      .sort({ displayName: 1 }); // Optional: sort by displayName or username
+
+    res.status(200).json({
+      users,
+      page,
+      pages: Math.ceil(count / limit),
+      count
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
   getUserProfileByUsername,
   updateUserProfile,
   followUser,
   unfollowUser,
+  searchUsers,
 };
