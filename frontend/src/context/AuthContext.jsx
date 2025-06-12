@@ -40,7 +40,7 @@ const authReducer = (state, action) => {
       return {
         ...state,
         token: action.payload.token,
-        user: userData, 
+        user: userData,
         isAuthenticated: true,
         loading: false,
         error: null,
@@ -58,7 +58,7 @@ const authReducer = (state, action) => {
         isAuthenticated: false,
         user: null,
         loading: false,
-        error: action.payload, 
+        error: action.payload,
       };
     case CLEAR_ERRORS:
       return {
@@ -78,22 +78,25 @@ export const AuthProvider = ({ children }) => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userString = localStorage.getItem('user');
-
-    if (token && userString) {
-      try {
-        const user = JSON.parse(userString);
+    const loadUserFromToken = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        dispatch({ type: USER_LOADED, payload: user });
-      } catch (e) {
-        console.error("Failed to parse user from localStorage", e);
-        dispatch({ type: LOGOUT, payload: "Invalid user data in storage" });
+        try {
+          const res = await axios.get(`${API_BASE_URL}/users/me`);
+          dispatch({ type: USER_LOADED, payload: res.data });
+          localStorage.setItem('user', JSON.stringify(res.data));
+        } catch (err) {
+          console.error('Failed to load user from token:', err.response ? err.response.data : err.message);
+          dispatch({ type: AUTH_ERROR, payload: err.response?.data?.message || "Session expired or invalid" });
+        }
+      } else {
+        dispatch({ type: LOGOUT, payload: null });
       }
-    } else {
-      dispatch({ type: LOGOUT, payload: null });
-    }
-  }, []); 
+    };
+
+    loadUserFromToken();
+  }, [API_BASE_URL]);
 
   const register = useCallback(async (formData) => {
     dispatch({ type: SET_LOADING });
@@ -123,11 +126,11 @@ export const AuthProvider = ({ children }) => {
       });
       throw err;
     }
-  }, [API_BASE_URL]); 
+  }, [API_BASE_URL]);
 
   const logout = useCallback(() => {
-    dispatch({ type: LOGOUT, payload: null }); 
-  }, []); 
+    dispatch({ type: LOGOUT, payload: null });
+  }, []);
 
   const clearErrors = useCallback(() => {
     dispatch({ type: CLEAR_ERRORS });

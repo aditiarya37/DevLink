@@ -1,46 +1,28 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const cors = require('cors')
+const cors = require('cors');
 const connectDB = require('./config/db');
 const mongoose = require('mongoose');
+
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes'); 
 
 dotenv.config();
+connectDB();
 
 const app = express();
 
-connectDB();
-
 const corsOptions = {
-    origin: 'http://localhost:5173',
-    optionsSuccessStatus: 200
+  origin: 'http://localhost:5173',
+  optionsSuccessStatus: 200
 };
-
 app.use(cors(corsOptions));
-
-const PORT = process.env.PORT || 5000;
-
 app.use(express.json());
 
-app.get('/api/test', (req,res) => {
-    console.log('--- Request received for /api/text ---');
-    res.json({message: 'Backend running successfully!'});
-});
-
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 
-app.get('/api/db-status', (req,res) => {
-    const dbState = mongoose.connection.readyState;
-    let statusMessage = 'Database status unknown';
-    switch(dbState){
-        case 0: statusMessage = 'MongoDB Disconnected'; break;
-        case 1: statusMessage = 'MongoDB Connected'; break;
-        case 2: statusMessage = 'MongoDB Connecting'; break;
-        case 3: statusMessage = 'MongoDB Disconnecting'; break;
-    }
-    res.json({ db_connection_state: dbState, message: statusMessage });
-})
-
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });

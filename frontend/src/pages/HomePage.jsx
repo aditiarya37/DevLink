@@ -1,64 +1,71 @@
 import React from 'react';
-import axios from 'axios';
-import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const HomePage = () => {
+  const { isAuthenticated, user, loading } = useAuth();
 
-    const [message, setMessage] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try{
-                setLoading(true);
-                const response = await axios.get(`${API_BASE_URL}/test`)
-                setMessage(response.data.message);
-                setError(null);
-            }
-            catch(err){
-                console.error("Error fetching data:",err);
-                setError(err.message || 'Faileld tp fetch data from backend.');
-                setMessage('');
-            }
-            finally{
-                setLoading(false);
-            }
-        };
-
-        if(!API_BASE_URL){
-            setError("API_BASE_URL is not defined. Check your .env file.");
-            setLoading(false);
-            return;
-        }
-
-        fetchData();
-    },[API_BASE_URL]);
-
+  if (loading && isAuthenticated === null) {
     return (
-        <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-center p-4">
-            <h1 className="text-5xl font-bold text-cyan-400 mb-4">
-                DevLink
-            </h1>
-            <p className="text-xl text-gray-300 mb-6">
-                Connecting Developers, One Line of Code at a Time.
-            </p>
-
-            <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
-                <h2 className="text-2xl text-sky-400 mb-3">Backend API Test:</h2>
-                {loading && <p className="text-yellow-400">Loading message from backend...</p>}
-                {error && <p className="text-red-500">Error: {error}</p>}
-                {message && <p className="text-green-400 text-lg font-semibold">{message}</p>}
-                {!loading && !error && !message && !API_BASE_URL && (
-                <p className="text-orange-400">Waiting for API configuration...</p>
-                )}
-                {!loading && !error && !message && API_BASE_URL && (
-                <p className="text-orange-400">No message received, or API is not responding as expected.</p>
-                )}
-            </div>
-        </div>
+      <div className="container mx-auto p-4 text-center">
+        <p className="text-xl text-sky-400">Loading DevLink...</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="container mx-auto p-4 text-center">
+      <div className="bg-gray-800 shadow-xl rounded-lg p-8 md:p-12 max-w-2xl mx-auto mt-10">
+        <h1 className="text-4xl md:text-5xl font-bold text-cyan-400 mb-6">
+          Welcome to DevLink!
+        </h1>
+        <p className="text-lg md:text-xl text-gray-300 mb-8">
+          The premier social network for developers to connect, share, and grow.
+        </p>
+
+        {isAuthenticated && user ? (
+          <div>
+            <p className="text-2xl text-sky-300 mb-4">
+              Hello, {user.displayName || user.username}!
+            </p>
+            <p className="text-gray-400 mb-6">
+              Your personalized feed and developer tools are just a click away.
+            </p>
+            <div className="space-y-4">
+              <Link
+                to="/dashboard" 
+                className="inline-block bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md transition duration-150 ease-in-out text-lg"
+              >
+                Go to Your Feed
+              </Link>
+              <p className="text-sm text-gray-500">(Feed functionality coming soon!)</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <p className="text-gray-400">
+              Join our vibrant community to showcase your projects, collaborate with peers,
+              and stay updated with the latest in tech.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
+              <Link
+                to="/login"
+                className="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md transition duration-150 ease-in-out text-lg"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                className="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-8 rounded-lg shadow-md transition duration-150 ease-in-out text-lg"
+              >
+                Create Account
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default HomePage;

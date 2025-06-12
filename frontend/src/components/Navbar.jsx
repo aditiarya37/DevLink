@@ -44,14 +44,14 @@ const Navbar = () => {
           {isAuthenticated && user ? (
             <>
               <NavLink
-                to={user.username ? `/profile/${user.username}` : '/profile'}
+                to={user && user.username ? `/profile/${user.username.toLowerCase()}` : '/login'}
                 className={({ isActive }) =>
                   `px-3 py-2 rounded-md text-sm font-medium ${
                     isActive ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                   }`
                 }
               >
-                {user.displayName || user.username || 'Profile'}
+                {user ? (user.displayName || user.username) : 'Profile'}
               </NavLink>
               <button
                 onClick={handleLogout}
