@@ -21,6 +21,31 @@ const createPost = async (req, res) => {
   }
 };
 
+const getGlobalFeedPosts = async (req, res, next) => {
+  const pageSize = 10; 
+  const page = Number(req.query.pageNumber) || 1;
+    
+  try {
+    const queryOptions = {};
+
+    const count = await Post.countDocuments(queryOptions);
+    const posts = await Post.find(queryOptions)
+      .populate('user', 'username displayName profilePicture')
+      .sort({ createdAt: -1 })
+      .limit(pageSize)
+      .skip(pageSize * (page - 1));
+
+    res.status(200).json({
+      posts,
+      page,
+      pages: Math.ceil(count / pageSize),
+      count,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getFeedPosts = async (req, res, next) => {
   const pageSize = 10;
   const page = Number(req.query.pageNumber) || 1;
@@ -168,6 +193,7 @@ const toggleLikePost = async (req, res, next) => {
 module.exports = {
   createPost,
   getFeedPosts,
+  getGlobalFeedPosts,
   getPostById,
   updatePost,
   deletePost,

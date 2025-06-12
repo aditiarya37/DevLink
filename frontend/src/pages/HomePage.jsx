@@ -16,21 +16,23 @@ const HomePage = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const fetchPosts = useCallback(async (pageNum = 1) => {
-    if (!isAuthenticated) { 
-        setPosts([]);
-        setLoadingPosts(false);
-        setPostsError('');
-        return;
-    }
     setLoadingPosts(true);
     setPostsError('');
     try {
-      const response = await axios.get(`${API_BASE_URL}/posts?pageNumber=${pageNum}`);
+      let url;
+      if (isAuthenticated) {
+        url = `${API_BASE_URL}/posts?pageNumber=${pageNum}`;
+      } else {
+        url = `${API_BASE_URL}/posts/global?pageNumber=${pageNum}`;
+      }
+      const response = await axios.get(url);
       setPosts(response.data.posts);
     } catch (err) {
       console.error('Error fetching posts:', err.response ? err.response.data : err.message);
-      if (err.response && err.response.status === 401) {
-        setPostsError('Your session may have expired. Please log in again to see your feed.');
+      if (isAuthenticated && err.response && err.response.status === 401) {
+        setPostsError('Your session may have expired. Please log in again.');
+      } else if (!isAuthenticated && err.response) {
+         setPostsError('Could not load recent activity. Please try again later.');
       } else {
         setPostsError(err.response?.data?.message || 'Could not load posts.');
       }
@@ -38,29 +40,23 @@ const HomePage = () => {
     } finally {
       setLoadingPosts(false);
     }
-  }, [API_BASE_URL, isAuthenticated, token]); 
+  }, [API_BASE_URL, isAuthenticated, token]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-        fetchPosts();
-    } else {
-        setPosts([]);
-        setLoadingPosts(false);
-        setPostsError('');
-    }
-  }, [isAuthenticated, fetchPosts]);
+    fetchPosts();
+  }, [fetchPosts]);
 
   const handlePostCreated = (newPost) => {
-    setPosts(prevPosts => [newPost, ...prevPosts]);
+    if (isAuthenticated) {
+        setPosts(prevPosts => [newPost, ...prevPosts]);
+    } else {
+        fetchPosts(); 
+    }
   };
 
   const handlePostDelete = async (postId) => {
     try {
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
+      const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.delete(`${API_BASE_URL}/posts/${postId}`, config);
       setPosts(prevPosts => prevPosts.filter(post => post._id !== postId));
     } catch (err) {
@@ -69,14 +65,8 @@ const HomePage = () => {
     }
   };
 
-  const handleOpenEditModal = (post) => {
-    setEditingPost(post);
-  };
-
-  const handleCloseEditModal = () => {
-    setEditingPost(null);
-  };
-
+  const handleOpenEditModal = (post) => { setEditingPost(post); };
+  const handleCloseEditModal = () => { setEditingPost(null); };
   const handlePostUpdated = (updatedPost) => {
     setPosts(prevPosts =>
       prevPosts.map(p => (p._id === updatedPost._id ? updatedPost : p))
@@ -136,36 +126,38 @@ const HomePage = () => {
         </div>
       )}
 
-      {isAuthenticated && ( 
-        <div className="mt-10">
-          <h2 className="text-2xl font-semibold text-sky-300 mb-6 text-center md:text-left">
-            Your Feed
-          </h2>
-          {loadingPosts && (
-            <div className="text-center text-sky-400">Loading posts...</div>
-          )}
-          {postsError && (
-            <div className="text-center text-red-500 bg-red-900 border border-red-700 p-3 rounded">{postsError}</div>
-          )}
-          {!loadingPosts && !postsError && posts.length === 0 && (
-            <div className="text-center text-gray-500 bg-gray-800 p-6 rounded-lg">
-                Your feed is empty. Follow some developers or create your first post!
-            </div>
-          )}
-          {!loadingPosts && !postsError && posts.length > 0 && (
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <PostItem
-                  key={post._id}
-                  post={post}
-                  onEdit={handleOpenEditModal}
-                  onDelete={handlePostDelete}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <div className="mt-10">
+        <h2 className="text-2xl font-semibold text-sky-300 mb-6 text-center md:text-left">
+          {isAuthenticated ? "Your Feed" : "Recent Activity"}
+        </h2>
+        
+        {loadingPosts && (
+          <div className="text-center text-sky-400">Loading posts...</div>
+        )}
+        {postsError && (
+          <div className="text-center text-red-500 bg-red-900 border border-red-700 p-3 rounded">{postsError}</div>
+        )}
+        {!loadingPosts && !postsError && posts.length === 0 && (
+          <div className="text-center text-gray-500 bg-gray-800 p-6 rounded-lg">
+            {isAuthenticated 
+              ? "Your feed is empty. Follow some developers or create your first post!"
+              : "No recent activity to show right now. Check back later!"
+            }
+          </div>
+        )}
+        {!loadingPosts && !postsError && posts.length > 0 && (
+          <div className="space-y-6">
+            {posts.map((post) => (
+              <PostItem
+                key={post._id}
+                post={post}
+                onEdit={handleOpenEditModal}
+                onDelete={handlePostDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {editingPost && (
         <EditPostModal

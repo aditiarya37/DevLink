@@ -2,6 +2,7 @@ const express = require('express');
 const {
   createPost,
   getFeedPosts,
+  getGlobalFeedPosts,
   getPostById,
   updatePost,
   deletePost,
@@ -17,6 +18,8 @@ const router = express.Router();
 router.use('/:postId/comments', commentRouter);
 
 router.get('/', protect, getFeedPosts);
+
+router.get('/global', getGlobalFeedPosts);
 
 router.get('/:id', getPostById);
 
