@@ -166,7 +166,10 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
             {post.user.displayName || post.user.username}
           </Link>
           <p className="text-gray-500 text-xs">
-            @{post.user.username.toLowerCase()} · {formatDate(post.createdAt)}
+            @{post.user.username.toLowerCase()} ·{' '}
+            <Link to={`/posts/${post._id}`} className="hover:underline" title="View post details">
+              {formatDate(post.createdAt)}
+            </Link>
           </p>
         </div>
         {isAuthor && (

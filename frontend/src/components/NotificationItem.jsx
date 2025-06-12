@@ -30,12 +30,17 @@ const NotificationItem = ({ notification, onNotificationClicked }) => {
       break;
     case 'like_post':
       message = `${notification.sender.displayName || notification.sender.username} liked your post.`;
-      linkTo = `/posts/${notification.post?._id}`; 
+      linkTo = notification.post?._id ? `/posts/${notification.post._id}` : '/'; 
       break;
     case 'comment_post':
       message = `${notification.sender.displayName || notification.sender.username} commented on your post.`;
-      linkTo = `/posts/${notification.post?._id}`; 
+      linkTo = notification.post?._id ? `/posts/${notification.post._id}` : '/';
       break;
+    case 'reply_comment': 
+        message = `${notification.sender.displayName || notification.sender.username} replied to your comment.`;
+        linkTo = notification.post?._id ? `/posts/${notification.post._id}` : '/'; 
+        if (notification.comment?._id && linkTo !== '/')
+        break;
     default:
       message = "You have a new notification.";
   }
