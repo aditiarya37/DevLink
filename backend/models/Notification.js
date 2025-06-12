@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema(
   {
-    recipient: { 
+    recipient: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: 'User',
@@ -15,11 +15,15 @@ const NotificationSchema = new mongoose.Schema(
     type: {
       type: String,
       required: true,
-      enum: ['follow', 'like_post', 'comment_post'],
+      enum: ['follow', 'like_post', 'comment_post', 'reply_comment'], 
     },
-    post: { 
+    post: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Post',
+    },
+    comment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Comment',
     },
     read: {
       type: Boolean,
@@ -27,12 +31,12 @@ const NotificationSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, 
+    timestamps: true,
   }
 );
 
 NotificationSchema.index({ recipient: 1, createdAt: -1 });
-NotificationSchema.index({ recipient: 1, read: 1, createdAt: -1 }); 
+NotificationSchema.index({ recipient: 1, read: 1, createdAt: -1 });
 
 const Notification = mongoose.model('Notification', NotificationSchema);
 

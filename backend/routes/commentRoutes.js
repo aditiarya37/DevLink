@@ -1,20 +1,27 @@
 const express = require('express');
+const commentController = require('../controllers/commentController'); 
+console.log('Imported commentController in commentRoutes:', commentController); 
+
 const {
   addCommentToPost,
   getCommentsForPost,
+  getCommentReplies,
   updateComment,
   deleteComment,
-} = require('../controllers/commentController');
+} = commentController;
+
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router({ mergeParams: true });
 
-router.post('/', protect, addCommentToPost);
+router.route('/')
+  .post(protect, addCommentToPost)
+  .get(getCommentsForPost);
 
-router.get('/', getCommentsForPost);
+router.get('/:commentId/replies', getCommentReplies);
 
-router.put('/:commentId', protect, updateComment);
-
-router.delete('/:commentId', protect, deleteComment);
+router.route('/:commentId')
+  .put(protect, updateComment)
+  .delete(protect, deleteComment);
 
 module.exports = router;

@@ -1,42 +1,79 @@
 const Comment = require('../models/Comment');
-const Post = require('../models/Post'); 
+const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 
+const MAX_COMMENT_DEPTH = 5;
+
 const addCommentToPost = async (req, res, next) => {
-  const { text } = req.body;
+  const { text, parentCommentId } = req.body;
   const postId = req.params.postId;
-  const userId = req.user._id; 
+  const userId = req.user._id;
 
   if (!text || text.trim() === '') {
     res.status(400);
-    throw new Error('Comment text is required');
+    return next(new Error('Comment text is required'));
   }
 
   try {
     const post = await Post.findById(postId);
     if (!post) {
       res.status(404);
-      throw new Error('Post not found');
+      return next(new Error('Post not found'));
     }
 
-    const postAuthorId = post.user; 
+    let parentCommentDoc = null; 
+    let depth = 0;
 
-    const comment = new Comment({
+    if (parentCommentId) {
+      parentCommentDoc = await Comment.findById(parentCommentId);
+      if (!parentCommentDoc) {
+        res.status(404);
+        return next(new Error('Parent comment not found'));
+      }
+      if (parentCommentDoc.post.toString() !== postId) {
+        res.status(400);
+        return next(new Error('Parent comment does not belong to this post'));
+      }
+      depth = parentCommentDoc.depth + 1;
+      if (depth > MAX_COMMENT_DEPTH) {
+        res.status(400);
+        return next(new Error(`Comment nesting depth cannot exceed ${MAX_COMMENT_DEPTH}`));
+      }
+    }
+
+    const commentFields = {
       text,
       user: userId,
       post: postId,
-    });
-    const createdComment = await comment.save();
+      parentComment: parentCommentId || null,
+      depth,
+    };
+
+    const newComment = new Comment(commentFields);
+    const createdComment = await newComment.save();
+
+    if (parentCommentDoc) {
+      parentCommentDoc.replyCount = (parentCommentDoc.replyCount || 0) + 1;
+      await parentCommentDoc.save();
+    }
 
     post.commentCount = (await Comment.countDocuments({ post: postId })) || 0;
     await post.save();
 
-    if (userId.toString() !== postAuthorId.toString()) {
+    let notificationRecipient = null;
+    if (parentCommentDoc && parentCommentDoc.user.toString() !== userId.toString()) {
+        notificationRecipient = parentCommentDoc.user;
+    } else if (!parentCommentDoc && post.user.toString() !== userId.toString()) {
+        notificationRecipient = post.user;
+    }
+
+    if (notificationRecipient) {
         await Notification.create({
-            recipient: postAuthorId,
-            sender: userId,             
-            type: 'comment_post',
+            recipient: notificationRecipient,
+            sender: userId,
+            type: parentCommentDoc ? 'reply_comment' : 'comment_post',
             post: postId,
+            comment: createdComment._id,
         });
     }
 
@@ -49,18 +86,19 @@ const addCommentToPost = async (req, res, next) => {
 
 const getCommentsForPost = async (req, res, next) => {
   const postId = req.params.postId;
-  const pageSize = 10; 
+  const pageSize = parseInt(req.query.limit) || 10;
   const page = Number(req.query.pageNumber) || 1;
 
   try {
     const postExists = await Post.findById(postId);
     if (!postExists) {
       res.status(404);
-      throw new Error('Post not found, cannot fetch comments');
+      return next(new Error('Post not found, cannot fetch comments'));
     }
 
-    const count = await Comment.countDocuments({ post: postId }); 
-    const comments = await Comment.find({ post: postId })
+    const query = { post: postId, parentComment: null }; 
+    const count = await Comment.countDocuments(query);
+    const comments = await Comment.find(query)
       .populate('user', 'username displayName profilePicture')
       .sort({ createdAt: -1 })
       .limit(pageSize)
@@ -70,89 +108,113 @@ const getCommentsForPost = async (req, res, next) => {
       comments,
       page,
       pages: Math.ceil(count / pageSize),
-      count
+      count,
     });
   } catch (error) {
     next(error);
   }
 };
 
+const getCommentReplies = async (req, res, next) => {
+    const parentCommentId = req.params.commentId;
+    const pageSize = parseInt(req.query.limit) || 5;
+    const page = Number(req.query.pageNumber) || 1;
+
+    try {
+        const parentCommentExists = await Comment.findById(parentCommentId);
+        if (!parentCommentExists) {
+            res.status(404);
+            return next(new Error('Parent comment not found, cannot fetch replies.'));
+        }
+
+        const query = { parentComment: parentCommentId };
+        const count = await Comment.countDocuments(query);
+        const replies = await Comment.find(query)
+            .populate('user', 'username displayName profilePicture')
+            .sort({ createdAt: 1 })
+            .limit(pageSize)
+            .skip(pageSize * (page - 1));
+        
+        res.status(200).json({
+            replies,
+            page,
+            pages: Math.ceil(count / pageSize),
+            count
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
 const updateComment = async (req, res, next) => {
-  const { text } = req.body;
-  const { commentId } = req.params;
-  const userId = req.user._id;
-
-  if (!text || text.trim() === '') {
-    res.status(400);
-    throw new Error('Comment text is required for update');
-  }
-
-  try {
-    const comment = await Comment.findById(commentId);
-
-    if (!comment) {
-      res.status(404);
-      throw new Error('Comment not found');
+    const { text } = req.body;
+    const { commentId } = req.params;
+    const userId = req.user._id;
+    if (!text || text.trim() === '') { res.status(400); return next(new Error('Comment text is required for update')); }
+    try {
+        const commentToUpdate = await Comment.findById(commentId); 
+        if (!commentToUpdate) { res.status(404); return next(new Error('Comment not found')); }
+        if (commentToUpdate.user.toString() !== userId.toString()) { res.status(401); return next(new Error('User not authorized to update this comment'));}
+        commentToUpdate.text = text;
+        const updatedComment = await commentToUpdate.save();
+        await updatedComment.populate('user', 'username displayName profilePicture');
+        res.status(200).json(updatedComment);
+    } catch (error) {
+        next(error);
     }
-
-    if (comment.user.toString() !== userId.toString()) {
-      res.status(401);
-      throw new Error('User not authorized to update this comment');
-    }
-
-    comment.text = text;
-    const updatedComment = await comment.save();
-    await updatedComment.populate('user', 'username displayName profilePicture');
-
-    res.status(200).json(updatedComment);
-  } catch (error) {
-    next(error);
-  }
 };
 
 const deleteComment = async (req, res, next) => {
-  const { commentId, postId } = req.params; 
-  const userId = req.user._id;
+   const { commentId } = req.params;
+   const userId = req.user._id;
 
-  try {
-    const comment = await Comment.findById(commentId);
+   try {
+     const commentToDelete = await Comment.findById(commentId);
+     if (!commentToDelete) {
+       res.status(404);
+       return next(new Error('Comment not found'));
+     }
 
-    if (!comment) {
-      res.status(404);
-      throw new Error('Comment not found');
-    }
+     const post = await Post.findById(commentToDelete.post);
+     if (!post) {
+         res.status(404);
+         return next(new Error('Associated post not found'));
+     }
 
-    const post = await Post.findById(comment.post); 
+     const isCommentAuthor = commentToDelete.user.toString() === userId.toString();
+     const isPostAuthor = post.user.toString() === userId.toString();
 
-    if (comment.user.toString() !== userId.toString()) {
-      res.status(401);
-      throw new Error('User not authorized to delete this comment');
-    }
+     if (!isCommentAuthor && !isPostAuthor) {
+       res.status(401);
+       return next(new Error('User not authorized to delete this comment'));
+     }
 
-    await comment.deleteOne();
+     if (commentToDelete.replyCount > 0 && commentToDelete.status === 'visible') {
+         commentToDelete.text = "[This comment has been deleted by user]";
+         commentToDelete.status = 'deleted';
+         await commentToDelete.save();
+         res.status(200).json({ message: 'Comment marked as deleted to preserve replies', comment: commentToDelete });
 
-    if (post) {
-      post.commentCount = (await Comment.countDocuments({ post: post._id })) || 0;
-      await post.save();
-    } else if (postId) { 
-        const postToUpdate = await Post.findById(postId);
-        if (postToUpdate) {
-            postToUpdate.commentCount = (await Comment.countDocuments({ post: postId })) || 0;
-            await postToUpdate.save();
-        }
-    }
+     } else {
+         await Comment.deleteOne({ _id: commentId });
 
-
-    res.status(200).json({ message: 'Comment removed successfully' });
-  } catch (error) {
-    next(error);
-  }
-};
-
+         if (commentToDelete.parentComment) {
+             await Comment.findByIdAndUpdate(commentToDelete.parentComment, { $inc: { replyCount: -1 } });
+         }
+         post.commentCount = Math.max(0, (post.commentCount || 0) - 1);
+         await post.save();
+         res.status(200).json({ message: 'Comment removed successfully' });
+     }
+   } catch (error) {
+     next(error);
+   }
+ };
 
 module.exports = {
   addCommentToPost,
   getCommentsForPost,
+  getCommentReplies,
   updateComment,
   deleteComment,
 };
