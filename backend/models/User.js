@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const LinkSchema = new mongoose.Schema({
     github: { type: String, trim: true, default: '' },
@@ -80,6 +81,8 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  passwordResetToken: String,
+  passwordResetExpires: Date,
 });
 
 UserSchema.index({ skills: 1 });
@@ -89,6 +92,10 @@ UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
   }
+  if (this.isModified('password') && this.passwordResetToken) {
+      this.passwordResetToken = undefined;
+      this.passwordResetExpires = undefined;
+  }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
@@ -96,6 +103,19 @@ UserSchema.pre('save', async function (next) {
 
 UserSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+UserSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; 
+
+  return resetToken; 
 };
 
 const User = mongoose.model('User', UserSchema);

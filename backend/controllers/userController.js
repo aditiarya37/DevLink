@@ -123,7 +123,7 @@ const followUser = async (req, res, next) => {
     if (!userToFollow) { res.status(404); return next(new Error('User to follow not found')); }
     if (!currentUser) { res.status(404); return next(new Error('Current user not found')); }
 
-    if (currentUser.following.map(id => id.toString()).includes(userIdToFollow._id.toString())) {
+    if (currentUser.following.map(id => id.toString()).includes(userIdToFollow)) {
       res.status(400);
       return next(new Error('You are already following this user'));
     }
