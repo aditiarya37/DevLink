@@ -7,6 +7,7 @@ const initialState = {
   user: null,
   loading: true,
   error: null,
+  unreadNotificationCount: 0,
 };
 
 const LOGIN_SUCCESS = 'LOGIN_SUCCESS';
@@ -18,6 +19,8 @@ const USER_LOADED = 'USER_LOADED';
 const AUTH_ERROR = 'AUTH_ERROR';
 const CLEAR_ERRORS = 'CLEAR_ERRORS';
 const SET_LOADING = 'SET_LOADING';
+const SET_UNREAD_NOTIFICATION_COUNT = 'SET_UNREAD_NOTIFICATION_COUNT';
+const DECREMENT_UNREAD_NOTIFICATION_COUNT = 'DECREMENT_UNREAD_NOTIFICATION_COUNT';
 
 const authReducer = (state, action) => {
   switch (action.type) {
@@ -27,7 +30,7 @@ const authReducer = (state, action) => {
       return {
         ...state,
         isAuthenticated: true,
-        user: action.payload,
+        user: action.payload.user,
         loading: false,
         error: null,
       };
@@ -44,6 +47,7 @@ const authReducer = (state, action) => {
         isAuthenticated: true,
         loading: false,
         error: null,
+        unreadNotificationCount: 0, 
       };
     case LOGIN_FAIL:
     case REGISTER_FAIL:
@@ -59,12 +63,14 @@ const authReducer = (state, action) => {
         user: null,
         loading: false,
         error: action.payload,
+        unreadNotificationCount: 0,
       };
     case CLEAR_ERRORS:
-      return {
-        ...state,
-        error: null,
-      };
+      return { ...state, error: null };
+    case SET_UNREAD_NOTIFICATION_COUNT:
+      return { ...state, unreadNotificationCount: action.payload };
+    case DECREMENT_UNREAD_NOTIFICATION_COUNT:
+      return { ...state, unreadNotificationCount: Math.max(0, state.unreadNotificationCount - action.payload) };
     default:
       return state;
   }
@@ -74,59 +80,65 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
-
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+  const fetchUnreadNotificationCount = useCallback(async (authTokenForRequest) => {
+    if (!authTokenForRequest) return;
+    try {
+      const config = { headers: { Authorization: `Bearer ${authTokenForRequest}` } };
+      const res = await axios.get(`${API_BASE_URL}/notifications?limit=1&page=1`, config);
+      dispatch({ type: SET_UNREAD_NOTIFICATION_COUNT, payload: res.data.unreadCount || 0 });
+    } catch (err) {
+      console.error('Failed to fetch unread notification count:', err.response ? err.response.data : err.message);
+    }
+  }, [API_BASE_URL]);
+
   useEffect(() => {
-    const loadUserFromToken = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const loadUserAndNotifications = async () => {
+      const tokenFromStorage = localStorage.getItem('token');
+      if (tokenFromStorage) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${tokenFromStorage}`;
         try {
-          const res = await axios.get(`${API_BASE_URL}/users/me`);
-          dispatch({ type: USER_LOADED, payload: res.data });
-          localStorage.setItem('user', JSON.stringify(res.data));
+          const userRes = await axios.get(`${API_BASE_URL}/users/me`);
+          dispatch({ type: USER_LOADED, payload: { user: userRes.data } });
+          localStorage.setItem('user', JSON.stringify(userRes.data));
+          await fetchUnreadNotificationCount(tokenFromStorage);
         } catch (err) {
-          console.error('Failed to load user from token:', err.response ? err.response.data : err.message);
-          dispatch({ type: AUTH_ERROR, payload: err.response?.data?.message || "Session expired or invalid" });
+          console.error('Failed to load user or notifications on mount:', err.response ? err.response.data : err.message);
+          dispatch({ type: AUTH_ERROR, payload: err.response?.data?.message || "Session error" });
         }
       } else {
         dispatch({ type: LOGOUT, payload: null });
       }
     };
-
-    loadUserFromToken();
-  }, [API_BASE_URL]);
+    loadUserAndNotifications();
+  }, [API_BASE_URL, fetchUnreadNotificationCount]); 
 
   const register = useCallback(async (formData) => {
     dispatch({ type: SET_LOADING });
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/register`, formData);
       dispatch({ type: REGISTER_SUCCESS, payload: response.data });
+      await fetchUnreadNotificationCount(response.data.token); 
       return response.data;
     } catch (err) {
-      dispatch({
-        type: REGISTER_FAIL,
-        payload: err.response?.data?.message || 'Registration failed',
-      });
+      dispatch({ type: REGISTER_FAIL, payload: err.response?.data?.message || 'Registration failed' });
       throw err;
     }
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, fetchUnreadNotificationCount]);
 
   const login = useCallback(async (formData) => {
     dispatch({ type: SET_LOADING });
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/login`, formData);
       dispatch({ type: LOGIN_SUCCESS, payload: response.data });
+      await fetchUnreadNotificationCount(response.data.token);
       return response.data;
     } catch (err) {
-      dispatch({
-        type: LOGIN_FAIL,
-        payload: err.response?.data?.message || 'Login failed',
-      });
+      dispatch({ type: LOGIN_FAIL, payload: err.response?.data?.message || 'Login failed' });
       throw err;
     }
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, fetchUnreadNotificationCount]);
 
   const logout = useCallback(() => {
     dispatch({ type: LOGOUT, payload: null });
@@ -134,6 +146,14 @@ export const AuthProvider = ({ children }) => {
 
   const clearErrors = useCallback(() => {
     dispatch({ type: CLEAR_ERRORS });
+  }, []);
+
+  const updateUnreadCount = useCallback((newCount) => {
+    dispatch({ type: SET_UNREAD_NOTIFICATION_COUNT, payload: newCount });
+  }, []);
+
+  const decrementUnreadCount = useCallback((count = 1) => {
+    dispatch({ type: DECREMENT_UNREAD_NOTIFICATION_COUNT, payload: count });
   }, []);
 
   return (
@@ -144,10 +164,14 @@ export const AuthProvider = ({ children }) => {
         user: state.user,
         loading: state.loading,
         error: state.error,
+        unreadNotificationCount: state.unreadNotificationCount,
         register,
         login,
         logout,
         clearErrors,
+        fetchUnreadNotificationCount,
+        updateUnreadCount,
+        decrementUnreadCount,
       }}
     >
       {children}

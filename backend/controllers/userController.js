@@ -66,21 +66,27 @@ const followUser = async (req, res, next) => {
 
   if (userIdToFollow === currentUserId.toString()) {
     res.status(400);
-    throw new Error("You cannot follow yourself");
+    return next(new Error("You cannot follow yourself"));
   }
 
   try {
-    const userToFollow = await User.findById(userIdToFollow);
-    const currentUser = await User.findById(currentUserId);
+    const [userToFollow, currentUser] = await Promise.all([
+      User.findById(userIdToFollow),
+      User.findById(currentUserId)
+    ]);
 
-    if (!userToFollow || !currentUser) {
+    if (!userToFollow) {
       res.status(404);
-      throw new Error('User not found');
+      return next(new Error('User to follow not found'));
+    }
+    if (!currentUser) {
+      res.status(404);
+      return next(new Error('Current user not found'));
     }
 
-    if (currentUser.following.includes(userIdToFollow)) {
+    if (currentUser.following.map(id => id.toString()).includes(userIdToFollow.toString())) {
       res.status(400);
-      throw new Error('You are already following this user');
+      return next(new Error('You are already following this user'));
     }
 
     currentUser.following.push(userIdToFollow);
@@ -89,7 +95,17 @@ const followUser = async (req, res, next) => {
     await currentUser.save();
     await userToFollow.save();
 
-    if (currentUserId.toString() !== userIdToFollow.toString()) 
+    if (currentUserId.toString() !== userIdToFollow.toString()) {
+        try {
+            await Notification.create({
+                recipient: userIdToFollow,
+                sender: currentUserId,
+                type: 'follow',
+            });
+        } catch (notificationError) {
+            console.error('Error creating follow notification:', notificationError.message);
+        }
+    }
 
     res.status(200).json({ message: `Successfully followed ${userToFollow.username}` });
 
@@ -104,21 +120,24 @@ const unfollowUser = async (req, res, next) => {
 
   if (userIdToUnfollow === currentUserId.toString()) {
     res.status(400);
-    throw new Error("You cannot unfollow yourself");
+    return next(new Error("You cannot unfollow yourself"));
   }
   try {
-    const userToUnfollow = await User.findById(userIdToUnfollow);
-    const currentUser = await User.findById(currentUserId);
+    const [userToUnfollow, currentUser] = await Promise.all([
+        User.findById(userIdToUnfollow),
+        User.findById(currentUserId)
+    ]);
+
     if (!userToUnfollow || !currentUser) {
       res.status(404);
-      throw new Error('User not found');
+      return next(new Error('User not found'));
     }
-    if (!currentUser.following.includes(userIdToUnfollow)) {
+    if (!currentUser.following.map(id => id.toString()).includes(userIdToUnfollow.toString())) {
       res.status(400);
-      throw new Error('You are not following this user');
+      return next(new Error('You are not following this user'));
     }
     currentUser.following = currentUser.following.filter(
-      (followedId) => followedId.toString() !== userIdToUnfollow
+      (followedId) => followedId.toString() !== userIdToUnfollow.toString()
     );
     userToUnfollow.followers = userToUnfollow.followers.filter(
       (followerId) => followerId.toString() !== currentUserId.toString()
