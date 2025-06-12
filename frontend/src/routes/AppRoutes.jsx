@@ -8,6 +8,7 @@ import DashboardPage from '../pages/DashboardPage';
 import ProfilePage from '../pages/ProfilePage';
 import EditProfilePage from '../pages/EditProfilePage';
 import SearchResultsPage from '../pages/SearchResultsPage';
+import TagFeedPage from '../pages/TagFeedPage'; 
 
 import ProtectedRoute from '../components/ProtectedRoute';
 
@@ -19,6 +20,7 @@ const AppRoutes = () => {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/profile/:username" element={<ProfilePage />} />
       <Route path="/search" element={<SearchResultsPage />} />
+      <Route path="/tag/:tagName" element={<TagFeedPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />

@@ -19,7 +19,7 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   const [commentError, setCommentError] = useState('');
   const [newCommentText, setNewCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [replyingToComment, setReplyingToComment] = useState(null); 
+  const [replyingToComment, setReplyingToComment] = useState(null);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -52,7 +52,7 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   }, [post?._id, API_BASE_URL]);
 
   useEffect(() => {
-    if (showComments && post?._id && comments.length === 0) { 
+    if (showComments && post?._id && comments.length === 0) {
       fetchTopLevelComments();
     }
   }, [showComments, post?._id, comments.length, fetchTopLevelComments]);
@@ -71,10 +71,8 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
       if (replyingToComment) {
         payload.parentCommentId = replyingToComment._id;
       }
-
       const config = { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } };
       const response = await axios.post(`${API_BASE_URL}/posts/${post._id}/comments`, payload, config);
-      
       if (replyingToComment) {
         setComments(prevTopLevelComments => prevTopLevelComments.map(c => {
             if (c._id === replyingToComment._id) {
@@ -83,9 +81,8 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
             return c; 
         }));
       } else {
-        setComments(prevComments => [response.data, ...prevComments]); 
+        setComments(prevComments => [response.data, ...prevComments]);
       }
-      
       setNewCommentText('');
       setReplyingToComment(null);
       setPost(prevPost => ({...prevPost, commentCount: (prevPost.commentCount || 0) + 1}));
@@ -109,7 +106,6 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
     try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         await axios.delete(`${API_BASE_URL}/posts/${postIdToDeleteFrom}/comments/${commentId}`, config);
-        
         setComments(prevComments => prevComments.filter(c => c._id !== commentId));
         setPost(prevPost => ({...prevPost, commentCount: Math.max(0, (prevPost.commentCount || 1) - 1)}));
     } catch (err) {
@@ -221,12 +217,12 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
       )}
 
       {post.tags && post.tags.length > 0 && (
-         <div className="mb-3">
+         <div className="mb-3 mt-3 pt-3 border-t border-gray-700">
          {post.tags.map((tag, index) => (
            <Link
              key={index}
-             to={`/tags/${tag}`}
-             className="inline-block bg-gray-700 hover:bg-gray-600 text-sky-300 text-xs font-semibold mr-2 px-2.5 py-1 rounded-full mb-1"
+             to={`/tag/${encodeURIComponent(tag.toLowerCase())}`}
+             className="inline-block bg-gray-700 hover:bg-gray-600 text-sky-300 text-xs font-semibold mr-2 mb-2 px-2.5 py-1 rounded-full"
            >
              #{tag}
            </Link>
