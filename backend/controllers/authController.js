@@ -2,6 +2,7 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const crypto = require('crypto');
+const sendEmail = require('../utils/sendEmail');
 
 dotenv.config();
 
@@ -97,42 +98,49 @@ const loginUser = async (req,res,next) => {
 };
 
 const forgotPassword = async (req, res, next) => {
-
   const { email } = req.body;
-
   if (!email) {
     res.status(400);
     return next(new Error('Please provide an email address'));
   }
 
   try {
-
     const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
+      // Generic response for security
       return res.status(200).json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
     const resetToken = user.createPasswordResetToken();
     await user.save({ validateBeforeSave: false });
+
     const frontendResetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    const emailMessage = `You are receiving this email because you (or someone else) has requested to reset the password for your DevLink account.\n\nPlease click on the following link, or paste it into your browser to complete the process within 10 minutes:\n\n${frontendResetUrl}\n\nIf you did not request this, please ignore this email and your password will remain unchanged.\n`;
 
-    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n ${frontendResetUrl} \n\nIf you did not request this, please ignore this email and your password will remain unchanged.\nThis token is valid for 10 minutes.`;
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'DevLink - Password Reset Request',
+        message: emailMessage,
+      });
+      console.log(`Password reset email initiated for ${user.email}. Check Ethereal if testing.`);
+      res.status(200).json({ message: 'Password reset link has been sent to your email.' });
 
-    console.log('--- SIMULATING SENDING EMAIL ---');
-    console.log('To:', user.email);
-    console.log('Subject: Password Reset Request');
-    console.log('Message:', message);
-    console.log('Reset Token (for testing, not for production log):', resetToken);
-    console.log('--- END SIMULATING EMAIL ---');
+    } catch (emailError) {
+      console.error('Email sending error in forgotPassword:', emailError);
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+      return next(new Error('Email could not be sent at this time. Please try again later.'));
+    }
 
-    res.status(200).json({ message: 'If an account with that email exists, a password reset link has been (conceptually) sent.' });
-
-
-  } catch (error) {
-    next(error);
+  } catch(error){
+        console.error('Login Error:', error.message);
+        const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+        res.status(statusCode || 500).json({message: error.message});
+    }
   }
-};
 
 const resetPassword = async (req, res, next) => {
   const resetTokenFromParams = req.params.resettoken;
