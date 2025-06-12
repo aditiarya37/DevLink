@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Notification = require('../models/Notification'); 
 
 const getMyProfile = async (req, res) => {
   if (req.user) {
@@ -59,9 +60,9 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-const followUser = async (req, res) => {
+const followUser = async (req, res, next) => {
   const userIdToFollow = req.params.userIdToFollow;
-  const currentUserId = req.user._id; 
+  const currentUserId = req.user._id;
 
   if (userIdToFollow === currentUserId.toString()) {
     res.status(400);
@@ -88,16 +89,16 @@ const followUser = async (req, res) => {
     await currentUser.save();
     await userToFollow.save();
 
+    if (currentUserId.toString() !== userIdToFollow.toString()) 
+
     res.status(200).json({ message: `Successfully followed ${userToFollow.username}` });
 
   } catch (error) {
-    console.error('Error following user:', error.message);
-    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-    res.status(statusCode).json({ message: error.message });
+    next(error);
   }
 };
 
-const unfollowUser = async (req, res) => {
+const unfollowUser = async (req, res, next) => {
   const userIdToUnfollow = req.params.userIdToUnfollow;
   const currentUserId = req.user._id;
 
@@ -105,37 +106,28 @@ const unfollowUser = async (req, res) => {
     res.status(400);
     throw new Error("You cannot unfollow yourself");
   }
-
   try {
     const userToUnfollow = await User.findById(userIdToUnfollow);
     const currentUser = await User.findById(currentUserId);
-
     if (!userToUnfollow || !currentUser) {
       res.status(404);
       throw new Error('User not found');
     }
-
     if (!currentUser.following.includes(userIdToUnfollow)) {
       res.status(400);
       throw new Error('You are not following this user');
     }
-
     currentUser.following = currentUser.following.filter(
       (followedId) => followedId.toString() !== userIdToUnfollow
     );
     userToUnfollow.followers = userToUnfollow.followers.filter(
       (followerId) => followerId.toString() !== currentUserId.toString()
     );
-
     await currentUser.save();
     await userToUnfollow.save();
-
     res.status(200).json({ message: `Successfully unfollowed ${userToUnfollow.username}` });
-
   } catch (error) {
-    console.error('Error unfollowing user:', error.message);
-    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-    res.status(statusCode).json({ message: error.message });
+    next(error);
   }
 };
 

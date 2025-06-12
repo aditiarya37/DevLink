@@ -1,5 +1,6 @@
 const Post = require('../models/Post');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 const createPost = async (req, res) => {
   const { content, tags } = req.body;
@@ -157,32 +158,43 @@ const getPostsByUserId = async (req, res, next) => {
 const toggleLikePost = async (req, res, next) => {
   try {
     const postId = req.params.id;
-    const userId = req.user._id;
+    const userId = req.user._id; 
 
     const post = await Post.findById(postId);
-
     if (!post) {
       res.status(404);
       throw new Error('Post not found');
     }
 
+    const postAuthorId = post.user; 
     const isLiked = post.likes.some(like => like.equals(userId));
+    let newIsLikedStatus;
 
     if (isLiked) {
       post.likes = post.likes.filter(like => !like.equals(userId));
+      newIsLikedStatus = false;
     } else {
       post.likes.push(userId);
+      newIsLikedStatus = true;
+
+      if (userId.toString() !== postAuthorId.toString()) {
+        await Notification.create({
+          recipient: postAuthorId, 
+          sender: userId,           
+          type: 'like_post',
+          post: postId,
+        });
+      }
     }
 
     post.likeCount = post.likes.length;
-
     await post.save();
 
     res.status(200).json({
         _id: post._id,
-        likes: post.likes, 
+        likes: post.likes,
         likeCount: post.likeCount,
-        isLikedByCurrentUser: !isLiked 
+        isLikedByCurrentUser: newIsLikedStatus
     });
 
   } catch (error) {

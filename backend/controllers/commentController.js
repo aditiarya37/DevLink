@@ -1,5 +1,6 @@
 const Comment = require('../models/Comment');
 const Post = require('../models/Post'); 
+const Notification = require('../models/Notification');
 
 const addCommentToPost = async (req, res, next) => {
   const { text } = req.body;
@@ -18,19 +19,28 @@ const addCommentToPost = async (req, res, next) => {
       throw new Error('Post not found');
     }
 
+    const postAuthorId = post.user; 
+
     const comment = new Comment({
       text,
       user: userId,
       post: postId,
     });
-
     const createdComment = await comment.save();
 
     post.commentCount = (await Comment.countDocuments({ post: postId })) || 0;
     await post.save();
 
-    await createdComment.populate('user', 'username displayName profilePicture');
+    if (userId.toString() !== postAuthorId.toString()) {
+        await Notification.create({
+            recipient: postAuthorId,
+            sender: userId,             
+            type: 'comment_post',
+            post: postId,
+        });
+    }
 
+    await createdComment.populate('user', 'username displayName profilePicture');
     res.status(201).json(createdComment);
   } catch (error) {
     next(error);

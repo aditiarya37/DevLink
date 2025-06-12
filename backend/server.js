@@ -6,7 +6,8 @@ const mongoose = require('mongoose');
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
-const postRoutes = require('./routes/postRoutes'); 
+const postRoutes = require('./routes/postRoutes');
+const notificationRoutes = require('./routes/notificationRoutes'); 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware'); 
 
 dotenv.config();
@@ -24,6 +25,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes); 
+app.use('/api/notifications', notificationRoutes);
 
 app.use(notFound);  
 app.use(errorHandler); 
