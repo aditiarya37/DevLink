@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react'; 
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import NotificationList from './NotificationList'; 
+import NotificationList from './NotificationList';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout, loading: authLoading, unreadNotificationCount } = useAuth();
   const navigate = useNavigate();
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
-  const notificationDropdownRef = useRef(null); 
+  const notificationDropdownRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = () => {
     logout();
@@ -29,18 +30,23 @@ const Navbar = () => {
         }
       }
     };
-
     if (showNotificationsDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
     }
-
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showNotificationsDropdown]);
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+    }
+  };
 
   if (authLoading && isAuthenticated === null) {
     return (
@@ -55,11 +61,33 @@ const Navbar = () => {
 
   return (
     <nav className="bg-gray-800 p-4 shadow-lg sticky top-0 z-50">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link to="/" className="text-2xl font-bold text-cyan-400 hover:text-cyan-300">
+      <div className="container mx-auto flex flex-wrap justify-between items-center">
+        <Link to="/" className="text-2xl font-bold text-cyan-400 hover:text-cyan-300 mr-4 md:mr-6">
           DevLink
         </Link>
-        <div className="flex items-center space-x-3 md:space-x-4">
+
+        <div className="flex-grow order-3 w-full md:w-auto md:order-2 mt-3 md:mt-0 md:mx-4 max-w-xl">
+          <form onSubmit={handleSearchSubmit} className="flex">
+            <input
+              type="search"
+              name="search"
+              id="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full px-3 py-1.5 border border-gray-700 rounded-l-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
+              placeholder="Search DevLink..."
+              aria-label="Search DevLink"
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center px-4 py-1.5 border border-l-0 border-sky-500 bg-sky-500 text-white rounded-r-md hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-gray-800 text-sm"
+            >
+              Search
+            </button>
+          </form>
+        </div>
+
+        <div className="flex items-center space-x-2 md:space-x-3 order-2 md:order-3">
           <NavLink
             to="/"
             end
@@ -100,9 +128,7 @@ const Navbar = () => {
                     <div className="px-4 py-3 border-b border-gray-600">
                         <p className="text-sm font-medium text-white">Notifications</p>
                     </div>
-                    
                     <NotificationList closeDropdown={() => setShowNotificationsDropdown(false)} />
-                    
                     <div className="px-4 py-2 border-t border-gray-600 text-center block" role="none">
                         <Link 
                             to="/notifications" 

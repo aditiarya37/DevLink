@@ -7,6 +7,7 @@ import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
 import ProfilePage from '../pages/ProfilePage';
 import EditProfilePage from '../pages/EditProfilePage';
+import SearchResultsPage from '../pages/SearchResultsPage';
 
 import ProtectedRoute from '../components/ProtectedRoute';
 
@@ -17,7 +18,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/profile/:username" element={<ProfilePage />} />
-
+      <Route path="/search" element={<SearchResultsPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
