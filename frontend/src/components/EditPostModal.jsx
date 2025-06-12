@@ -6,23 +6,37 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
   const { token } = useAuth();
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
+  const [codeLanguage, setCodeLanguage] = useState('');
+  const [code, setCode] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const commonLanguages = [
+    'javascript', 'python', 'java', 'csharp', 'cpp', 'php', 'ruby', 'go',
+    'swift', 'kotlin', 'typescript', 'html', 'css', 'sql', 'bash', 'json', 'xml', 'markdown', 'plaintext'
+  ];
+
 
   useEffect(() => {
     if (postToEdit) {
       setContent(postToEdit.content || '');
-      setTags(postToEdit.tags ? postToEdit.tags.join(', ') : ''); 
+      setTags(postToEdit.tags ? postToEdit.tags.join(', ') : '');
+      setCodeLanguage(postToEdit.codeSnippet?.language || '');
+      setCode(postToEdit.codeSnippet?.code || '');
     }
   }, [postToEdit]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content.trim()) {
-      setError('Post content cannot be empty.');
+    if (!content.trim() && !code.trim()) {
+      setError('Post must include content or a code snippet.');
       return;
+    }
+    if (code.trim() && !codeLanguage.trim()) {
+        setError('Please select a language for your code snippet.');
+        return;
     }
     setError('');
     setLoading(true);
@@ -30,20 +44,30 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
     try {
       const updatedData = {
         content,
-        tags, 
+        tags,
       };
+
+      if (code.trim()) {
+        updatedData.codeSnippet = {
+          language: codeLanguage.trim().toLowerCase() || 'plaintext',
+          code: code,
+        };
+      } else {
+        updatedData.codeSnippet = { code: null, language: null }; 
+      }
+
+
       const config = {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       };
-
       const response = await axios.put(`${API_BASE_URL}/posts/${postToEdit._id}`, updatedData, config);
       if (onPostUpdated) {
         onPostUpdated(response.data);
       }
-      onClose(); 
+      onClose();
     } catch (err) {
       console.error('Error updating post:', err.response ? err.response.data : err.message);
       setError(err.response?.data?.message || 'Failed to update post.');
@@ -59,61 +83,64 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
       <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-lg">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-semibold text-sky-400">Edit Post</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-200 text-2xl"
-            aria-label="Close modal"
-          >
-            ×
-          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-200 text-2xl">×</button>
         </div>
-
-        {error && <p className="mb-4 text-red-400 bg-red-900 border border-red-700 p-3 rounded">{error}</p>}
+        {error && <p className="mb-4 text-red-400 bg-red-900 p-3 rounded">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="edit-content" className="block text-sm font-medium text-gray-300 sr-only">
-              Post Content
-            </label>
+          <div> 
+            <label htmlFor="edit-content-main" className="sr-only">Post Content</label>
             <textarea
-              id="edit-content"
-              name="content"
-              rows="5"
+              id="edit-content-main" name="content" rows="3"
               className="mt-1 block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
               value={content}
-              onChange={(e) => {
-                setContent(e.target.value);
-                if(error) setError('');
-              }}
-              required
+              onChange={(e) => { setContent(e.target.value); if(error) setError(''); }}
             ></textarea>
           </div>
-          <div>
+
+          <div className="border-t border-b border-gray-700 py-4 space-y-3">
+            <p className="text-sm text-gray-400">Edit Code Snippet (Leave code blank to remove)</p>
+            <div>
+                <label htmlFor="edit-codeLanguage" className="block text-sm font-medium text-gray-300 mb-1">
+                    Language
+                </label>
+                <select
+                    id="edit-codeLanguage" name="codeLanguage" value={codeLanguage}
+                    onChange={(e) => setCodeLanguage(e.target.value)}
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-700 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm rounded-md bg-gray-700 text-white"
+                >
+                    <option value="">Select Language</option>
+                    {commonLanguages.map(lang => (
+                        <option key={lang} value={lang}>{lang.charAt(0).toUpperCase() + lang.slice(1)}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label htmlFor="edit-code" className="sr-only">Code</label>
+                <textarea
+                    id="edit-code" name="code" rows="6"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white font-mono text-sm"
+                    placeholder="Paste your code here..."
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                ></textarea>
+            </div>
+          </div>
+
+          <div> 
             <label htmlFor="edit-tags" className="block text-sm font-medium text-gray-300">
               Tags (comma-separated)
             </label>
             <input
-              type="text"
-              name="tags"
-              id="edit-tags"
+              type="text" name="tags" id="edit-tags"
               className="mt-1 block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
             />
           </div>
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 hover:bg-gray-700 focus:outline-none"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none disabled:opacity-50"
-            >
+          <div className="flex justify-end space-x-3"> 
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 hover:bg-gray-700">Cancel</button>
+            <button type="submit" disabled={loading} className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50">
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import CommentItem from './CommentItem'; 
+import CommentItem from './CommentItem';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   const { user: currentUser, isAuthenticated, token } = useAuth();
@@ -11,9 +13,8 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   const [isLikedByCurrentUser, setIsLikedByCurrentUser] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [likeInProgress, setLikeInProgress] = useState(false);
-
   const [comments, setComments] = useState([]);
-  const [showComments, setShowComments] = useState(false); 
+  const [showComments, setShowComments] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [newCommentText, setNewCommentText] = useState('');
@@ -23,17 +24,17 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
 
   useEffect(() => {
     if (initialPost) {
-      setPost(initialPost);
-      if (isAuthenticated && currentUser && initialPost.likes) {
-        setIsLikedByCurrentUser(initialPost.likes.some(like => like === currentUser._id || like._id === currentUser._id));
-      } else {
-        setIsLikedByCurrentUser(false);
-      }
-      setLikeCount(initialPost.likeCount || 0);
+        setPost(initialPost);
+        if (isAuthenticated && currentUser && initialPost.likes && Array.isArray(initialPost.likes)) {
+            setIsLikedByCurrentUser(initialPost.likes.some(like => like === currentUser._id || (like && like._id === currentUser._id)));
+        } else {
+            setIsLikedByCurrentUser(false);
+        }
+        setLikeCount(initialPost.likeCount || 0);
     }
   }, [initialPost, isAuthenticated, currentUser]);
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     if (!post?._id) return;
     setLoadingComments(true);
     setCommentError('');
@@ -46,13 +47,13 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
     } finally {
       setLoadingComments(false);
     }
-  };
+  }, [post?._id, API_BASE_URL]);
 
   useEffect(() => {
     if (showComments && post?._id) {
       fetchComments();
     }
-  }, [showComments, post?._id]); 
+  }, [showComments, post?._id, fetchComments]);
 
   const handleToggleComments = () => {
     setShowComments(!showComments);
@@ -66,7 +67,7 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } };
       const response = await axios.post(`${API_BASE_URL}/posts/${post._id}/comments`, { text: newCommentText }, config);
-      setComments(prevComments => [response.data, ...prevComments]); 
+      setComments(prevComments => [response.data, ...prevComments]);
       setNewCommentText('');
       setPost(prevPost => ({...prevPost, commentCount: (prevPost.commentCount || 0) + 1}));
     } catch (err) {
@@ -95,12 +96,30 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
     alert("Edit comment functionality coming soon!");
   };
 
-
   const isAuthor = isAuthenticated && currentUser && currentUser._id === post.user._id;
-  const formatDate = (dateString) => { try { return new Date(dateString).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch (error) { return "Invalid date"; } };
-  const handleDeleteClick = () => { if (window.confirm('Are you sure you want to delete this post?')) { if (onDelete) { onDelete(post._id); } } };
+
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch (error) {
+      return "Invalid date";
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      if (onDelete) {
+        onDelete(post._id);
+      }
+    }
+  };
+  
   const userInitial = post.user.username ? post.user.username.charAt(0).toUpperCase() : 'X';
-  const handleLikeToggle = async () => { 
+
+  const handleLikeToggle = async () => {
     if (!isAuthenticated || !token || likeInProgress) return;
     setLikeInProgress(true);
     const originallyLiked = isLikedByCurrentUser;
@@ -123,6 +142,9 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
     }
   };
 
+  if (!post || !post.user) {
+    return <div className="bg-gray-800 p-4 rounded-lg shadow-md animate-pulse">Loading post data...</div>;
+  }
 
   return (
     <div className="bg-gray-800 p-5 rounded-lg shadow-xl mb-6">
@@ -144,14 +166,64 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
         </div>
         {isAuthor && (
             <div className="relative">
-            <button onClick={() => onEdit && onEdit(post)} className="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-gray-700 mr-2" aria-label="Edit post">Edit</button>
-            <button onClick={handleDeleteClick} className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-gray-700" aria-label="Delete post">Delete</button>
+            <button
+                onClick={() => onEdit && onEdit(post)}
+                className="text-xs text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-gray-700 mr-2"
+                aria-label="Edit post"
+            >
+                Edit
+            </button>
+            <button
+                onClick={handleDeleteClick}
+                className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-gray-700"
+                aria-label="Delete post"
+            >
+                Delete
+            </button>
           </div>
         )}
       </div>
 
-      <div className="text-gray-200 mb-4 whitespace-pre-wrap break-words">{post.content}</div>
-      {post.tags && post.tags.length > 0 && ( <div className="mb-3"> {post.tags.map((tag, index) => ( <Link key={index} to={`/tags/${tag}`} className="inline-block bg-gray-700 hover:bg-gray-600 text-sky-300 text-xs font-semibold mr-2 px-2.5 py-1 rounded-full mb-1" > #{tag} </Link> ))} </div> )}
+      {post.content && (
+        <div className="text-gray-200 mb-4 whitespace-pre-wrap break-words">
+          {post.content}
+        </div>
+      )}
+
+      {post.codeSnippet && post.codeSnippet.code && (
+        <div className="my-4 rounded-md overflow-hidden bg-gray-900">
+          {post.codeSnippet.language && 
+            <div className="bg-gray-700 px-3 py-1">
+                <span className="text-xs text-gray-400">
+                    {post.codeSnippet.language.charAt(0).toUpperCase() + post.codeSnippet.language.slice(1)}
+                </span>
+            </div>
+          }
+          <SyntaxHighlighter
+            language={post.codeSnippet.language || 'plaintext'}
+            style={dracula}
+            customStyle={{ margin: 0, padding: '1rem', fontSize: '0.875rem', borderRadius: '0 0 0.375rem 0.375rem' }}
+            wrapLongLines={true}
+            showLineNumbers={post.codeSnippet.code.split('\n').length > 1} 
+          >
+            {String(post.codeSnippet.code).trimEnd()} 
+          </SyntaxHighlighter>
+        </div>
+      )}
+
+      {post.tags && post.tags.length > 0 && (
+         <div className="mb-3">
+         {post.tags.map((tag, index) => (
+           <Link
+             key={index}
+             to={`/tags/${tag}`}
+             className="inline-block bg-gray-700 hover:bg-gray-600 text-sky-300 text-xs font-semibold mr-2 px-2.5 py-1 rounded-full mb-1"
+           >
+             #{tag}
+           </Link>
+         ))}
+       </div>
+      )}
 
       <div className="border-t border-gray-700 pt-3 flex items-center space-x-6 text-gray-400">
         <button
@@ -171,7 +243,7 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
         </button>
         <button
           onClick={handleToggleComments}
-          className={`flex items-center hover:text-sky-400 text-sm ${!isAuthenticated ? 'cursor-not-allowed opacity-60' : ''}`}
+          className={`flex items-center hover:text-sky-400 text-sm ${!isAuthenticated && post.commentCount === 0 ? 'cursor-not-allowed opacity-60' : ''}`}
           title="View Comments"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -183,7 +255,7 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
 
       {showComments && (
         <div className="mt-4 pt-4 border-t border-gray-700">
-          {isAuthenticated && ( 
+          {isAuthenticated && (
             <form onSubmit={handleAddComment} className="mb-4 flex items-start space-x-3">
               <img
                 src={currentUser.profilePicture || `https://ui-avatars.com/api/?name=${currentUser.username.charAt(0).toUpperCase()}&background=random&color=fff&size=80&font-size=0.33&length=1`}
@@ -226,7 +298,7 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
                     comment={comment}
                     postId={post._id}
                     onDeleteComment={handleDeleteComment}
-                    onEditComment={handleEditComment} 
+                    onEditComment={handleEditComment}
                 />
               ))}
             </div>
