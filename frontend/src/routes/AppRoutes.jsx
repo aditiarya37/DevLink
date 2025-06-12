@@ -8,7 +8,9 @@ import DashboardPage from '../pages/DashboardPage';
 import ProfilePage from '../pages/ProfilePage';
 import EditProfilePage from '../pages/EditProfilePage';
 import SearchResultsPage from '../pages/SearchResultsPage';
-import TagFeedPage from '../pages/TagFeedPage'; 
+import TagFeedPage from '../pages/TagFeedPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage'; 
+import ResetPasswordPage from '../pages/ResetPasswordPage';
 
 import ProtectedRoute from '../components/ProtectedRoute';
 
@@ -21,6 +23,8 @@ const AppRoutes = () => {
       <Route path="/profile/:username" element={<ProfilePage />} />
       <Route path="/search" element={<SearchResultsPage />} />
       <Route path="/tag/:tagName" element={<TagFeedPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} /> 
+      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
