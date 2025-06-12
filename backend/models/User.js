@@ -38,7 +38,8 @@ const UserSchema = new mongoose.Schema({
   },
   profilePicture: {
     type: String,
-    default: 'https://via.placeholder.com/150/000000/FFFFFF/?text=User',
+    // default: 'https://via.placeholder.com/150/000000/FFFFFF/?text=User',
+    default: `https://ui-avatars.com/api/?name=U&background=0D8ABC&color=fff&size=150&font-size=0.33&length=1`,
   },
   bio: {
     type: String,

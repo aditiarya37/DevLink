@@ -19,7 +19,6 @@ const ProfilePage = () => {
   const [followLoading, setFollowLoading] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
   const isOwnProfile = isAuthenticated && currentUser && currentUser.username === routeUsername?.toLowerCase();
 
   const fetchProfileData = useCallback(async () => {
@@ -28,16 +27,13 @@ const ProfilePage = () => {
       setLoadingProfile(false); setLoadingPosts(false); return;
     }
     setLoadingProfile(true); setLoadingPosts(true); setError('');
-
     try {
       const profileRes = await axios.get(`${API_BASE_URL}/users/profile/${routeUsername.toLowerCase()}`);
       const fetchedProfileUser = profileRes.data;
       setProfileUser(fetchedProfileUser);
-
       if (fetchedProfileUser && fetchedProfileUser._id) {
         const postsRes = await axios.get(`${API_BASE_URL}/posts/user/${fetchedProfileUser._id}`);
         setUserPosts(postsRes.data);
-
         if (currentUser && fetchedProfileUser._id !== currentUser._id && Array.isArray(currentUser.following)) {
           const currentlyFollowing = currentUser.following.some(
             (followedUserId) => followedUserId === fetchedProfileUser._id
@@ -57,14 +53,13 @@ const ProfilePage = () => {
     } finally {
       setLoadingProfile(false); setLoadingPosts(false);
     }
-  }, [routeUsername, API_BASE_URL, currentUser]); // Removed authLoading, let parent handle initial load blocking
+  }, [routeUsername, API_BASE_URL, currentUser]);
 
   useEffect(() => {
     if (!authLoading) {
       fetchProfileData();
     }
   }, [authLoading, fetchProfileData]);
-
 
   const handleFollowToggle = async () => {
     if (!profileUser || !profileUser._id || !token || isOwnProfile) return;
@@ -74,9 +69,6 @@ const ProfilePage = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.put(`${API_BASE_URL}/users/${profileUser._id}/${action}`, {}, config);
       setIsFollowing(!isFollowing);
-      // TODO: Update follower count on profileUser and current user in AuthContext.
-      // For now, we might need to re-fetch currentUser to update its 'following' list accurately
-      // Or have the backend return the updated currentUser.following list.
     } catch (err) {
       console.error(`Error ${action}ing user:`, err.response ? err.response.data : err.message);
       alert(`Failed to ${action} user. ` + (err.response?.data?.message || ''));
@@ -89,14 +81,14 @@ const ProfilePage = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       await axios.delete(`${API_BASE_URL}/posts/${postId}`, config);
-      setUserPosts(prevPosts => prevPosts.filter(post => post._id !== postId));
+      setUserPosts(prevPosts => prevPosts.filter(p => p._id !== postId));
     } catch (err) {
       console.error("Error deleting post from profile:", err.response ? err.response.data : err.message);
       alert(err.response?.data?.message || "Failed to delete post.");
     }
   };
 
-  const handleOpenEditModalOnProfile = (post) => { setEditingPost(post); };
+  const handleOpenEditModalOnProfile = (postToEdit) => { setEditingPost(postToEdit); };
   const handleCloseEditModalOnProfile = () => { setEditingPost(null); };
   const handlePostUpdatedOnProfile = (updatedPost) => {
     setUserPosts(prevPosts =>
@@ -133,12 +125,14 @@ const ProfilePage = () => {
     );
   }
 
+  const profileInitial = profileUser.username ? profileUser.username.charAt(0).toUpperCase() : 'P';
+
   return (
     <div className="container mx-auto p-4 max-w-3xl">
       <div className="bg-gray-800 shadow-xl rounded-lg p-6 md:p-8 mb-8">
         <div className="flex flex-col md:flex-row items-center md:items-start">
           <img
-            src={profileUser.profilePicture || `https://via.placeholder.com/150/CBD5E0/1A202C?text=${profileUser.username.charAt(0).toUpperCase()}`}
+            src={profileUser.profilePicture || `https://ui-avatars.com/api/?name=${profileInitial}&background=random&color=fff&size=150&font-size=0.33&length=1`}
             alt={profileUser.displayName || profileUser.username}
             className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-sky-500 object-cover mb-6 md:mb-0 md:mr-8"
           />
@@ -195,10 +189,10 @@ const ProfilePage = () => {
         )}
         {userPosts.length > 0 && (
           <div className="space-y-6">
-            {userPosts.map((post) => (
+            {userPosts.map((postFromMap) => (
               <PostItem
-                key={post._id}
-                post={post}
+                key={postFromMap._id}
+                post={postFromMap}
                 onEdit={handleOpenEditModalOnProfile}
                 onDelete={handlePostDeleteOnProfile}
               />

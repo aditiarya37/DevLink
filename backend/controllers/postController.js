@@ -129,6 +129,42 @@ const getPostsByUserId = async (req, res, next) => {
     }
 };
 
+const toggleLikePost = async (req, res, next) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user._id;
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      res.status(404);
+      throw new Error('Post not found');
+    }
+
+    const isLiked = post.likes.some(like => like.equals(userId));
+
+    if (isLiked) {
+      post.likes = post.likes.filter(like => !like.equals(userId));
+    } else {
+      post.likes.push(userId);
+    }
+
+    post.likeCount = post.likes.length;
+
+    await post.save();
+
+    res.status(200).json({
+        _id: post._id,
+        likes: post.likes, 
+        likeCount: post.likeCount,
+        isLikedByCurrentUser: !isLiked 
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createPost,
   getFeedPosts,
@@ -136,4 +172,5 @@ module.exports = {
   updatePost,
   deletePost,
   getPostsByUserId,
+  toggleLikePost,
 };
