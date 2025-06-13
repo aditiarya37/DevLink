@@ -1,6 +1,7 @@
 const Post = require('../models/Post');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { extractFirstUrl, fetchLinkMetadata } = require('../utils/linkPreviewUtils');
 
 const createPost = async (req, res, next) => {
   const { content, tags, codeSnippet } = req.body;
@@ -32,6 +33,19 @@ const createPost = async (req, res, next) => {
         throw new Error('Code content is missing for the specified language.');
     }
 
+    if (content) { 
+      const firstUrl = extractFirstUrl(content);
+      if (firstUrl) {
+        console.log(`Extracted URL for preview: ${firstUrl}`);
+        const metadata = await fetchLinkMetadata(firstUrl);
+        if (metadata) {
+          postFields.linkPreview = metadata;
+          console.log('Fetched link metadata:', metadata);
+        } else {
+          console.log(`No metadata fetched for ${firstUrl}`);
+        }
+      }
+    }
 
     const post = new Post(postFields);
     const createdPost = await post.save();
@@ -163,36 +177,35 @@ const updatePost = async (req, res, next) => {
   const { content, tags, codeSnippet } = req.body;
   try {
     const post = await Post.findById(req.params.id);
+    if (!post) { res.status(404); return next(new Error('Post not found')); }
+    if (post.user.toString() !== req.user._id.toString()) { res.status(401); return next(new Error('User not authorized to update this post')); }
 
-    if (!post) {
-      res.status(404);
-      throw new Error('Post not found');
-    }
-    if (post.user.toString() !== req.user._id.toString()) {
-      res.status(401);
-      throw new Error('User not authorized to update this post');
-    }
+    const newContentProvided = content !== undefined;
+    const newContentValue = newContentProvided ? content : post.content;
+    const newCodeProvided = codeSnippet && codeSnippet.code !== undefined;
+    const newCodeValue = newCodeProvided ? codeSnippet.code : post.codeSnippet?.code;
 
-    const newContent = content !== undefined ? content : post.content;
-    const newCode = codeSnippet && codeSnippet.code !== undefined ? codeSnippet.code : post.codeSnippet?.code;
 
-    if (!newContent && !newCode) {
+    if (!newContentValue && !newCodeValue) {
         res.status(400);
-        throw new Error('Post must include content or a code snippet after update.');
+        return next(new Error('Post must include content or a code snippet after update.'));
     }
     if (codeSnippet && codeSnippet.code && (codeSnippet.language === undefined && !post.codeSnippet?.language)) {
         res.status(400);
-        throw new Error('Please specify a language for the new/updated code snippet.');
+        return next(new Error('Please specify a language for the new/updated code snippet.'));
     }
 
+    let linkPreviewNeedsUpdate = false;
 
-    if (content !== undefined) post.content = content;
+    if (newContentProvided && content !== post.content) {
+      post.content = content;
+      linkPreviewNeedsUpdate = true;
+    }
     if (tags !== undefined) {
       post.tags = tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [];
     }
-
     if (codeSnippet !== undefined) {
-      if (codeSnippet.code === null || codeSnippet.code === '') { 
+      if (codeSnippet.code === null || codeSnippet.code === '') {
         post.codeSnippet = undefined;
       } else if (codeSnippet.code) {
         post.codeSnippet = {
@@ -204,11 +217,24 @@ const updatePost = async (req, res, next) => {
             post.codeSnippet.language = codeSnippet.language.trim().toLowerCase();
         } else {
             res.status(400);
-            throw new Error('Cannot set language without code content for a new snippet.');
+            return next(new Error('Cannot set language without code content for a new snippet.'));
         }
       }
     }
 
+    if (linkPreviewNeedsUpdate) {
+      const firstUrl = extractFirstUrl(post.content);
+      if (firstUrl) {
+        const metadata = await fetchLinkMetadata(firstUrl);
+        if (metadata) {
+          post.linkPreview = metadata;
+        } else {
+          post.linkPreview = undefined;
+        }
+      } else {
+        post.linkPreview = undefined;
+      }
+    }
 
     const updatedPost = await post.save();
     await updatedPost.populate('user', 'username displayName profilePicture');

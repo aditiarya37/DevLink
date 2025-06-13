@@ -1,5 +1,13 @@
 const mongoose = require('mongoose');
 
+const LinkPreviewSchema = new mongoose.Schema({ 
+    url: { type: String, required: true },
+    title: { type: String },
+    description: { type: String },
+    image: { type: String }, 
+    siteName: { type: String },
+}, { _id: false });
+
 const PostSchema = new mongoose.Schema(
   {
     user: {
@@ -44,7 +52,8 @@ const PostSchema = new mongoose.Schema(
     commentCount: {
       type: Number,
       default: 0,
-    }
+    },
+    linkPreview: LinkPreviewSchema,
   },
   {
     timestamps: true,
