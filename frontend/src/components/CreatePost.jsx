@@ -1,24 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { MentionsInput, Mention } from 'react-mentions';
+import defaultMentionStyle from './defaultMentionStyle';
+import mentionsInputStyle from './mentionsInputStyle';
 
 const CreatePost = ({ onPostCreated }) => {
   const { token, user } = useAuth();
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
-  const [codeLanguage, setCodeLanguage] = useState(''); 
+  const [codeLanguage, setCodeLanguage] = useState('');
   const [code, setCode] = useState('');
-
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
   const commonLanguages = [
     'javascript', 'python', 'java', 'csharp', 'cpp', 'php', 'ruby', 'go',
     'swift', 'kotlin', 'typescript', 'html', 'css', 'sql', 'bash', 'json', 'xml', 'markdown', 'plaintext'
   ];
+
+  const fetchUsersForMention = useCallback(async (query, callback) => {
+    if (!query || query.length < 1) {
+      return callback([]);
+    }
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=5`);
+      if (response.data.users) {
+        const suggestions = response.data.users.map(u => ({
+          id: u.username,
+          display: `${u.displayName} (@${u.username})`,
+        }));
+        callback(suggestions);
+      } else {
+        callback([]);
+      }
+    } catch (err) {
+      console.error("Error fetching users for mention:", err);
+      callback([]);
+    }
+  }, [API_BASE_URL]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,24 +52,17 @@ const CreatePost = ({ onPostCreated }) => {
         setError('Please select a language for your code snippet.');
         return;
     }
-
     setError('');
     setSuccessMessage('');
     setLoading(true);
-
     try {
-      const postData = {
-        content,
-        tags,
-      };
-
+      const postData = { content, tags };
       if (code.trim()) {
         postData.codeSnippet = {
           language: codeLanguage.trim().toLowerCase() || 'plaintext',
-          code: code, 
+          code: code,
         };
       }
-
       const config = { 
         headers: {
           'Content-Type': 'application/json',
@@ -55,13 +70,11 @@ const CreatePost = ({ onPostCreated }) => {
         },
       };
       const response = await axios.post(`${API_BASE_URL}/posts`, postData, config);
-
       setSuccessMessage('Post created successfully!');
       setContent('');
       setTags('');
       setCode('');
-      setCodeLanguage(''); 
-
+      setCodeLanguage('');
       if (onPostCreated) {
         onPostCreated(response.data);
       }
@@ -79,19 +92,38 @@ const CreatePost = ({ onPostCreated }) => {
   return (
     <div className="bg-gray-800 p-6 rounded-lg shadow-xl mb-8">
       <h2 className="text-2xl font-semibold text-sky-400 mb-4">Create a New Post</h2>
-      {error && <p className="mb-4 text-red-400 bg-red-900 p-3 rounded">{error}</p>}
-      {successMessage && <p className="mb-4 text-green-400 bg-green-900 p-3 rounded">{successMessage}</p>}
+      {error && <p className="mb-4 text-red-400 bg-red-900 border border-red-700 p-3 rounded">{error}</p>}
+      {successMessage && <p className="mb-4 text-green-400 bg-green-900 border border-green-700 p-3 rounded">{successMessage}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div> 
-          <label htmlFor="content" className="sr-only">Post Content</label>
-          <textarea
-            id="content" name="content" rows="3"
-            className="mt-1 block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
-            placeholder={`What's on your mind, ${user.displayName || user.username}? (Optional if adding code)`}
+        <div>
+          <label htmlFor="content-mention" className="sr-only">Post Content</label>
+          <MentionsInput
+            id="content-mention"
             value={content}
-            onChange={(e) => { setContent(e.target.value); if(error) setError(''); }}
-          ></textarea>
+            onChange={(event, newValue) => {
+                setContent(newValue);
+                if(error) setError('');
+            }}
+            placeholder={`What's on your mind, ${user.displayName || user.username}? Type @ to mention users...`}
+            style={mentionsInputStyle}
+            singleLine={false}
+            a11ySuggestionsListLabel={"Suggested users to mention"}
+          >
+            <Mention
+              trigger="@"
+              data={fetchUsersForMention}
+              markup="@@@__id__@@@"
+              style={defaultMentionStyle}
+              displayTransform={(id, display) => `@${id}`}
+              appendSpaceOnAdd={true}
+              renderSuggestion={(suggestion, search, highlightedDisplay, index, focused) => (
+                <div className={`px-3 py-2 ${focused ? 'bg-gray-600 text-white' : 'text-gray-300'}`}>
+                  {highlightedDisplay}
+                </div>
+              )}
+            />
+          </MentionsInput>
         </div>
 
         <div className="border-t border-b border-gray-700 py-4 space-y-3">
@@ -126,8 +158,8 @@ const CreatePost = ({ onPostCreated }) => {
                 ></textarea>
             </div>
         </div>
-
-        <div> 
+        
+        <div>
           <label htmlFor="tags" className="block text-sm font-medium text-gray-300">
             Tags (comma-separated)
           </label>
@@ -140,7 +172,7 @@ const CreatePost = ({ onPostCreated }) => {
           />
         </div>
 
-        <div> 
+        <div>
           <button
             type="submit" disabled={loading}
             className="w-full sm:w-auto inline-flex justify-center items-center px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 focus:ring-offset-gray-800 disabled:opacity-50"

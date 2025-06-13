@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import CommentItem from './CommentItem';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { dracula } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { FaExternalLinkAlt } from 'react-icons/fa';
 
 const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   const { user: currentUser, isAuthenticated, token } = useAuth();
@@ -52,10 +53,10 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   }, [post?._id, API_BASE_URL]);
 
   useEffect(() => {
-    if (showComments && post?._id && comments.length === 0) {
+    if (showComments && post?._id && comments.length === 0 && !loadingComments) {
       fetchTopLevelComments();
     }
-  }, [showComments, post?._id, comments.length, fetchTopLevelComments]);
+  }, [showComments, post?._id, comments.length, loadingComments, fetchTopLevelComments]);
 
   const handleToggleComments = () => {
     setShowComments(prevShow => !prevShow);
@@ -118,6 +119,44 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
     console.log("Trigger edit for comment:", commentToEdit, "from post:", postIdOfComment);
     alert("Edit comment functionality (modal) coming soon!");
   };
+
+  const renderContentWithMentions = (text) => {
+  if (!text) return '';
+
+  const mentionRegex = /@@@([\w-]+)@@@/g; 
+
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    const username = match[1]; 
+    const mentionText = match[0];
+    const startIndex = match.index;
+
+    if (startIndex > lastIndex) {
+      parts.push(text.substring(lastIndex, startIndex));
+    }
+
+    parts.push(
+      <Link
+        key={`${username}-${startIndex}`} 
+        to={`/profile/${username.toLowerCase()}`}
+        className="text-sky-400 hover:text-sky-300 font-semibold"
+        onClick={(e) => e.stopPropagation()}
+      >
+        @{username}
+      </Link>
+    );
+    lastIndex = startIndex + mentionText.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+
+  return parts.map((part, index) => <React.Fragment key={index}>{part}</React.Fragment>);
+};
 
   const isAuthor = isAuthenticated && currentUser && currentUser._id === post.user._id;
   const formatDate = (dateString) => { try { return new Date(dateString).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'}); } catch (error) { return "Invalid date"; } };
@@ -194,8 +233,44 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
 
       {post.content && (
         <div className="text-gray-200 mb-4 whitespace-pre-wrap break-words">
-          {post.content}
+          {renderContentWithMentions(post.content)}
         </div>
+      )}
+
+      {post.linkPreview && post.linkPreview.url && post.linkPreview.title && (
+        <a
+          href={post.linkPreview.url}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="block my-4 border border-gray-700 hover:border-sky-500 rounded-lg overflow-hidden transition-colors"
+        >
+          {post.linkPreview.image && (
+            <img
+              src={post.linkPreview.image}
+              alt={post.linkPreview.title || 'Link preview'}
+              className="w-full h-40 md:h-48 object-cover"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          )}
+          <div className="p-3 md:p-4 bg-gray-700">
+            {post.linkPreview.siteName && (
+              <p className="text-xs text-gray-400 mb-1 uppercase tracking-wider">
+                {post.linkPreview.siteName}
+              </p>
+            )}
+            <h3 className="font-semibold text-sky-400 text-md mb-1 line-clamp-2">
+              {post.linkPreview.title}
+            </h3>
+            {post.linkPreview.description && (
+              <p className="text-sm text-gray-300 line-clamp-2 md:line-clamp-3">
+                {post.linkPreview.description}
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-2 flex items-center truncate">
+              <FaExternalLinkAlt className="mr-1.5 h-3 w-3 flex-shrink-0" /> {post.linkPreview.url}
+            </p>
+          </div>
+        </a>
       )}
 
       {post.codeSnippet && post.codeSnippet.code && (

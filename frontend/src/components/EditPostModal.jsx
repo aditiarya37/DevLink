@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { MentionsInput, Mention } from 'react-mentions';
+import defaultMentionStyle from './defaultMentionStyle';
+import mentionsInputStyle from './mentionsInputStyle';
 
 const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
-  const { token } = useAuth();
+  const { token, user: currentUser } = useAuth();
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
   const [codeLanguage, setCodeLanguage] = useState('');
   const [code, setCode] = useState('');
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -18,7 +20,6 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
     'swift', 'kotlin', 'typescript', 'html', 'css', 'sql', 'bash', 'json', 'xml', 'markdown', 'plaintext'
   ];
 
-
   useEffect(() => {
     if (postToEdit) {
       setContent(postToEdit.content || '');
@@ -27,6 +28,27 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
       setCode(postToEdit.codeSnippet?.code || '');
     }
   }, [postToEdit]);
+
+  const fetchUsersForMention = useCallback(async (query, callback) => {
+    if (!query || query.length < 1) {
+      return callback([]);
+    }
+    try {
+      const response = await axios.get(`${API_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=5`);
+      if (response.data.users) {
+        const suggestions = response.data.users.map(u => ({
+          id: u.username,
+          display: `${u.displayName} (@${u.username})`,
+        }));
+        callback(suggestions);
+      } else {
+        callback([]);
+      }
+    } catch (err) {
+      console.error("Error fetching users for mention:", err);
+      callback([]);
+    }
+  }, [API_BASE_URL]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,24 +62,17 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
     }
     setError('');
     setLoading(true);
-
     try {
-      const updatedData = {
-        content,
-        tags,
-      };
-
+      const updatedData = { content, tags };
       if (code.trim()) {
         updatedData.codeSnippet = {
           language: codeLanguage.trim().toLowerCase() || 'plaintext',
           code: code,
         };
       } else {
-        updatedData.codeSnippet = { code: null, language: null }; 
+        updatedData.codeSnippet = { code: null, language: null };
       }
-
-
-      const config = {
+      const config = { 
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -85,17 +100,38 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
           <h2 className="text-2xl font-semibold text-sky-400">Edit Post</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200 text-2xl">×</button>
         </div>
-        {error && <p className="mb-4 text-red-400 bg-red-900 p-3 rounded">{error}</p>}
+        {error && <p className="mb-4 text-red-400 bg-red-900 border border-red-700 p-3 rounded">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div> 
-            <label htmlFor="edit-content-main" className="sr-only">Post Content</label>
-            <textarea
-              id="edit-content-main" name="content" rows="3"
-              className="mt-1 block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
+          <div>
+            <label htmlFor="edit-content-mention" className="sr-only">Post Content</label>
+            <MentionsInput
+              id="edit-content-mention"
               value={content}
-              onChange={(e) => { setContent(e.target.value); if(error) setError(''); }}
-            ></textarea>
+              onChange={(event, newValue) => {
+                  setContent(newValue);
+                  if(error) setError('');
+              }}
+              placeholder={currentUser ? `What's on your mind, ${currentUser.displayName || currentUser.username}? Type @ to mention users...` : "Edit post content..."}
+              style={mentionsInputStyle}
+              className="mentions-textarea-wrapper"
+              singleLine={false}
+              a11ySuggestionsListLabel={"Suggested users to mention"}
+            >
+              <Mention
+                trigger="@"
+                data={fetchUsersForMention}
+                markup="@@@__id__@@@"
+                style={defaultMentionStyle}
+                displayTransform={(id, display) => `@${id}`}
+                appendSpaceOnAdd={true}
+                renderSuggestion={(suggestion, search, highlightedDisplay, index, focused) => (
+                  <div className={`px-3 py-2 ${focused ? 'bg-gray-600 text-white' : 'text-gray-300'}`}>
+                    {highlightedDisplay}
+                  </div>
+                )}
+              />
+            </MentionsInput>
           </div>
 
           <div className="border-t border-b border-gray-700 py-4 space-y-3">
@@ -126,8 +162,8 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
                 ></textarea>
             </div>
           </div>
-
-          <div> 
+          
+          <div>
             <label htmlFor="edit-tags" className="block text-sm font-medium text-gray-300">
               Tags (comma-separated)
             </label>
@@ -138,7 +174,7 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
               onChange={(e) => setTags(e.target.value)}
             />
           </div>
-          <div className="flex justify-end space-x-3"> 
+          <div className="flex justify-end space-x-3">
             <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-300 hover:bg-gray-700">Cancel</button>
             <button type="submit" disabled={loading} className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50">
               {loading ? 'Saving...' : 'Save Changes'}
@@ -148,6 +184,6 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
       </div>
     </div>
   );
-};
+}
 
 export default EditPostModal;
