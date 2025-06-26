@@ -60,6 +60,7 @@ const registerUser = async (req,res,next) => {
 };
 
 const loginUser = async (req,res,next) => {
+  console.log('Login request received! Body:', req.body);
     const {emailOrUsername,password} = req.body;
 
     try{

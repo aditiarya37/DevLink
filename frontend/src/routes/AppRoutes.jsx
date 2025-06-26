@@ -14,6 +14,7 @@ import ResetPasswordPage from '../pages/ResetPasswordPage';
 import SinglePostPage from '../pages/SinglePostPage';
 
 import ProtectedRoute from '../components/ProtectedRoute';
+import NotificationsPage from '../pages/NotificationsPage';
 
 const AppRoutes = () => {
   return (
@@ -31,6 +32,7 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile/edit" element={<EditProfilePage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
       </Route>
 
     </Routes>

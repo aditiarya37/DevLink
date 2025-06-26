@@ -22,14 +22,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/posts', postRoutes); 
-app.use('/api/notifications', notificationRoutes);
-
-app.use(notFound);  
-app.use(errorHandler); 
-
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Hello from the DevLink backend! Test successful. CORS is working!' });
 });
@@ -44,6 +36,14 @@ app.get('/api/db-status', (req, res) => {
   }
   res.json({ db_connection_state: dbState, message: statusMessage });
 });
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes); 
+app.use('/api/notifications', notificationRoutes);
+
+app.use(notFound);  
+app.use(errorHandler); 
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

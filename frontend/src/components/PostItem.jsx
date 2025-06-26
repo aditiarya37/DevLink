@@ -19,6 +19,7 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [newCommentText, setNewCommentText] = useState('');
+  const [commentsFetched, setCommentsFetched] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [replyingToComment, setReplyingToComment] = useState(null);
 
@@ -43,23 +44,33 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/posts/${post._id}/comments`);
       setComments(response.data.comments || []);
+      setCommentsFetched(true);
     } catch (err) {
       console.error("Error fetching top-level comments:", err.response ? err.response.data : err.message);
       setCommentError(err.response?.data?.message || "Could not load comments.");
       setComments([]);
+      setCommentsFetched(true); // Set to true even on error to prevent infinite loop
     } finally {
       setLoadingComments(false);
     }
   }, [post?._id, API_BASE_URL]);
 
+  // Fixed useEffect - removed fetchTopLevelComments from dependencies and added commentsFetched check
   useEffect(() => {
-    if (showComments && post?._id && comments.length === 0 && !loadingComments) {
+    if (showComments && post?._id && !commentsFetched && !loadingComments) {
       fetchTopLevelComments();
     }
-  }, [showComments, post?._id, comments.length, loadingComments, fetchTopLevelComments]);
+  }, [showComments, post?._id, commentsFetched, loadingComments]);
 
   const handleToggleComments = () => {
-    setShowComments(prevShow => !prevShow);
+    setShowComments(prevShow => {
+      const newShowValue = !prevShow;
+      // Reset commentsFetched when closing comments
+      if (!newShowValue) {
+        setCommentsFetched(false);
+      }
+      return newShowValue;
+    });
   };
 
   const handleAddCommentOrReply = async (e) => {
@@ -373,10 +384,10 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
             </form>
           )}
           {loadingComments && <p className="text-sm text-gray-400">Loading comments...</p>}
-          {!loadingComments && comments.length === 0 && !commentError && (
+          {!loadingComments && comments.length === 0 && !commentError && commentsFetched && (
             <p className="text-sm text-gray-500 italic">No comments yet. Be the first to comment!</p>
           )}
-          {!loadingComments && commentError && !comments.length && (
+          {!loadingComments && commentError && (
              <p className="text-sm text-red-400">{commentError}</p>
           )}
           {!loadingComments && comments.length > 0 && (

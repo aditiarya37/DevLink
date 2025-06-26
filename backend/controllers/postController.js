@@ -2,6 +2,7 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { extractFirstUrl, fetchLinkMetadata } = require('../utils/linkPreviewUtils');
+const { extractUsernamesFromMentions, getMentionedUserIds } = require('../utils/mentionUtils');
 
 const createPost = async (req, res, next) => {
   const { content, tags, codeSnippet } = req.body;
@@ -49,6 +50,27 @@ const createPost = async (req, res, next) => {
 
     const post = new Post(postFields);
     const createdPost = await post.save();
+
+    if (createdPost.content) {
+      const mentionedUsernames = extractUsernamesFromMentions(createdPost.content);
+      if (mentionedUsernames.size > 0) {
+        const mentionedIds = await getMentionedUserIds(mentionedUsernames);
+        for (const recipientId of mentionedIds) {
+          // Don't notify user if they mentioned themselves
+          if (recipientId.toString() !== req.user._id.toString()) {
+            // Avoid duplicate notifications for the same mention in the same post by the same sender (more complex, can be added later)
+            // For now, create if not self-mention
+            await Notification.create({
+              recipient: recipientId,
+              sender: req.user._id,
+              type: 'mention_in_post',
+              post: createdPost._id,
+            });
+          }
+        }
+      }
+    }
+
     await createdPost.populate('user', 'username displayName profilePicture');
 
     res.status(201).json(createdPost);
@@ -196,6 +218,14 @@ const updatePost = async (req, res, next) => {
     }
 
     let linkPreviewNeedsUpdate = false;
+    const oldContent = post.content;
+
+    if (content !== undefined) { // content field is being explicitly updated
+      post.content = content;
+      if (content !== oldContent) { // Check if content actually changed
+        linkPreviewNeedsUpdate = true;
+      }
+    }
 
     if (newContentProvided && content !== post.content) {
       post.content = content;
@@ -237,6 +267,37 @@ const updatePost = async (req, res, next) => {
     }
 
     const updatedPost = await post.save();
+
+    if (content !== undefined && content !== oldContent && updatedPost.content) {
+      const mentionedUsernames = extractUsernamesFromMentions(updatedPost.content);
+      // TODO: More sophisticated logic might be needed here to avoid re-notifying for existing mentions
+      // or to handle removed mentions. For MVP, just notify for new mentions in updated content.
+      // A simpler approach for now: just notify based on the final content.
+      if (mentionedUsernames.size > 0) {
+        const mentionedIds = await getMentionedUserIds(mentionedUsernames);
+        for (const recipientId of mentionedIds) {
+          if (recipientId.toString() !== req.user._id.toString()) {
+            // Check if a similar mention notification already exists to avoid spam on minor edits
+            // This check could be more robust (e.g., check within a time window or only if new mention)
+            const existingNotification = await Notification.findOne({
+                recipient: recipientId,
+                sender: req.user._id,
+                type: 'mention_in_post',
+                post: updatedPost._id,
+            });
+            if (!existingNotification) { // Only create if no identical notification exists
+                await Notification.create({
+                    recipient: recipientId,
+                    sender: req.user._id,
+                    type: 'mention_in_post',
+                    post: updatedPost._id,
+                });
+            }
+          }
+        }
+      }
+    }
+
     await updatedPost.populate('user', 'username displayName profilePicture');
     res.status(200).json(updatedPost);
   } catch (error) {

@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import PostItem from '../components/PostItem'; 
 import CommentItem from '../components/CommentItem';
 import EditPostModal from '../components/EditPostModal';
+import { MentionsInput, Mention } from 'react-mentions';
+import mentionsInputStyle from '../components/mentionsInputStyle';
+import defaultMentionStyle from '../components/defaultMentionStyle';
 
 const SinglePostPage = () => {
   const { postId } = useParams();
@@ -49,6 +52,27 @@ const SinglePostPage = () => {
     }
   }, [postId, API_BASE_URL]);
 
+  const fetchUsers = useCallback((query, callback) => {
+    console.log("FETCH USERS CALLED WITH QUERY:", query);
+    if (!query || !token) return; 
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+
+    axios.get(`${API_BASE_URL}/users/search?q=${query}`, config)
+      .then(res => {
+        const users = res.data.map(user => ({
+          id: user._id,
+          display: user.displayName || user.username
+        }));
+        callback(users);
+      })
+      .catch(err => console.error("Could not fetch users for mention:", err));
+      
+  }, [API_BASE_URL, token]);
+
   useEffect(() => {
     fetchPostAndComments();
   }, [fetchPostAndComments]); 
@@ -76,7 +100,7 @@ const SinglePostPage = () => {
     setIsSubmittingComment(true);
     setError(''); 
     try {
-      const payload = { text: newCommentText };
+      const payload = { content: newCommentText };
       if (replyingToComment) {
         payload.parentCommentId = replyingToComment._id;
       }
@@ -156,16 +180,21 @@ const SinglePostPage = () => {
               className="w-10 h-10 rounded-full object-cover border border-gray-600"
             />
             <div className="flex-1">
-              <textarea
-                id={`single-post-comment-textarea-${postId}`}
-                name="newCommentText"
-                rows="3"
-                className="block w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
-                placeholder={replyingToComment ? `Replying to @${replyingToComment.user.username}...` : "Add a public comment..."}
+              <MentionsInput
                 value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                required
-              ></textarea>
+                onChange={(event, newValue) => setNewCommentText(newValue)}
+                placeholder={replyingToComment ? `Replying to @${replyingToComment.user.username}...` : "Add a public comment..."}
+                style={mentionsInputStyle}
+                className="mentions-input"
+              >
+                <Mention
+                  trigger="@"
+                  data={fetchUsers}
+                  style={defaultMentionStyle}
+                  markup="@[__display__](user:__id__)"
+                  appendSpaceOnAdd={true}
+                />
+              </MentionsInput>
               {replyingToComment && (
                   <button type="button" onClick={() => { setReplyingToComment(null); setNewCommentText(''); }} className="text-xs text-gray-400 hover:text-red-400 mt-1">
                       Cancel Reply

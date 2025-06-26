@@ -26,7 +26,7 @@ const HomePage = () => {
         url = `${API_BASE_URL}/posts/global?pageNumber=${pageNum}`;
       }
       const response = await axios.get(url);
-      setPosts(response.data.posts);
+      setPosts(response.data.posts || []);
     } catch (err) {
       console.error('Error fetching posts:', err.response ? err.response.data : err.message);
       if (isAuthenticated && err.response && err.response.status === 401) {

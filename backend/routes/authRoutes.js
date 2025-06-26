@@ -3,6 +3,8 @@ const { registerUser,loginUser, forgotPassword, resetPassword } = require('../co
 
 const router = express.Router();
 
+console.log("--- Initializing authRoutes ---");
+
 router.post('/register',registerUser);
 
 router.post('/login',loginUser);

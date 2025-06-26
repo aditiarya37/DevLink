@@ -12,7 +12,7 @@ router.use(protect);
 
 router.get('/', getNotifications);
 
-router.patch('/read-all', markAllNotificationsAsRead);
+router.put('/mark-all-read', markAllNotificationsAsRead);
 
 router.patch('/:notificationId/read', markNotificationAsRead);
 

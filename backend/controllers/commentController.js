@@ -1,6 +1,7 @@
 const Comment = require('../models/Comment');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
+const { extractUsernamesFromMentions, getMentionedUserIds } = require('../utils/mentionUtils');
 
 const MAX_COMMENT_DEPTH = 5;
 
@@ -51,6 +52,24 @@ const addCommentToPost = async (req, res, next) => {
 
     const newComment = new Comment(commentFields);
     const createdComment = await newComment.save();
+
+    if (createdComment.text) {
+      const mentionedUsernames = extractUsernamesFromMentions(createdComment.text);
+      if (mentionedUsernames.size > 0) {
+        const mentionedIds = await getMentionedUserIds(mentionedUsernames);
+        for (const recipientId of mentionedIds) {
+          if (recipientId.toString() !== req.user._id.toString()) { // Not self-mention
+            await Notification.create({
+              recipient: recipientId,
+              sender: req.user._id,
+              type: 'mention_in_comment',
+              post: createdComment.post, // The post the comment belongs to
+              comment: createdComment._id, // The comment where mention occurred
+            });
+          }
+        }
+      }
+    }
 
     if (parentCommentDoc) {
       parentCommentDoc.replyCount = (parentCommentDoc.replyCount || 0) + 1;
@@ -148,21 +167,76 @@ const getCommentReplies = async (req, res, next) => {
 };
 
 const updateComment = async (req, res, next) => {
-    const { text } = req.body;
-    const { commentId } = req.params;
-    const userId = req.user._id;
-    if (!text || text.trim() === '') { res.status(400); return next(new Error('Comment text is required for update')); }
-    try {
-        const commentToUpdate = await Comment.findById(commentId); 
-        if (!commentToUpdate) { res.status(404); return next(new Error('Comment not found')); }
-        if (commentToUpdate.user.toString() !== userId.toString()) { res.status(401); return next(new Error('User not authorized to update this comment'));}
-        commentToUpdate.text = text;
-        const updatedComment = await commentToUpdate.save();
-        await updatedComment.populate('user', 'username displayName profilePicture');
-        res.status(200).json(updatedComment);
-    } catch (error) {
-        next(error);
+  const { text } = req.body;
+  const { commentId } = req.params; // postId is also available via req.params if needed from route
+  const userId = req.user._id;
+
+  if (!text || text.trim() === '') {
+    res.status(400);
+    return next(new Error('Comment text is required for update'));
+  }
+
+  try {
+    const commentToUpdate = await Comment.findById(commentId);
+
+    if (!commentToUpdate) {
+      res.status(404);
+      return next(new Error('Comment not found'));
     }
+
+    if (commentToUpdate.user.toString() !== userId.toString()) {
+      res.status(401);
+      return next(new Error('User not authorized to update this comment'));
+    }
+
+    const oldText = commentToUpdate.text; // Store old text to compare for mentions
+
+    commentToUpdate.text = text;
+    const updatedComment = await commentToUpdate.save();
+
+    // --- Handle Mention Notifications in Updated Comment ---
+    if (text !== oldText && updatedComment.text) { // Process only if text actually changed
+      const mentionedUsernamesInNewText = extractUsernamesFromMentions(updatedComment.text);
+      const mentionedUsernamesInOldText = extractUsernamesFromMentions(oldText);
+
+      // Find newly added mentions
+      const newlyMentionedUsernames = new Set(
+        [...mentionedUsernamesInNewText].filter(username => !mentionedUsernamesInOldText.has(username))
+      );
+      
+      if (newlyMentionedUsernames.size > 0) {
+        const mentionedIds = await getMentionedUserIds(newlyMentionedUsernames);
+        for (const recipientId of mentionedIds) {
+          if (recipientId.toString() !== req.user._id.toString()) { // Not self-mention
+            // Check if a similar mention notification already exists for this edit session might be too complex.
+            // For simplicity, if it's a newly added username string, notify.
+            // A more robust check for existing notifications would be:
+            // const existingNotification = await Notification.findOne({
+            //     recipient: recipientId, sender: req.user._id, type: 'mention_in_comment',
+            //     post: updatedComment.post, comment: updatedComment._id
+            // });
+            // if (!existingNotification) { ... create ... }
+            // However, this doesn't distinguish if the mention was just re-typed.
+            // The current logic with newlyMentionedUsernames handles "new" mentions better.
+            
+            await Notification.create({
+                recipient: recipientId,
+                sender: req.user._id,
+                type: 'mention_in_comment',
+                post: updatedComment.post, // The post the comment belongs to
+                comment: updatedComment._id, // The comment where mention occurred
+            });
+          }
+        }
+      }
+    }
+    // --- END Handle Mentions ---
+
+    await updatedComment.populate('user', 'username displayName profilePicture');
+    res.status(200).json(updatedComment);
+  } catch (error) {
+    next(error);
+  }
 };
 
 const deleteComment = async (req, res, next) => {

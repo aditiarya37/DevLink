@@ -3,7 +3,7 @@ const Notification = require('../models/Notification');
 const getNotifications = async (req, res, next) => {
   const userId = req.user._id;
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit) || 15;
   const skip = (page - 1) * limit;
 
   try {
