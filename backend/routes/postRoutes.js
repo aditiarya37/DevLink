@@ -12,6 +12,7 @@ const {
   getPostsByTag,
 } = require('../controllers/postController');
 const { protect } = require('../middleware/authMiddleware'); 
+const { uploadPostImage } = require('../middleware/uploadMiddleware');
 
 const commentRouter = require('./commentRoutes');
 
@@ -31,9 +32,9 @@ router.get('/tag/:tagName', getPostsByTag);
 
 router.get('/user/:userId', getPostsByUserId);
 
-router.post('/', protect, createPost);
+router.post('/', protect, uploadPostImage, createPost);
 
-router.put('/:id', protect, updatePost);
+router.put('/:id', protect, uploadPostImage, updatePost);
 
 router.delete('/:id', protect, deletePost);
 

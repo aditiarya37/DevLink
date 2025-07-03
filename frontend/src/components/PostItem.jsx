@@ -49,13 +49,12 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
       console.error("Error fetching top-level comments:", err.response ? err.response.data : err.message);
       setCommentError(err.response?.data?.message || "Could not load comments.");
       setComments([]);
-      setCommentsFetched(true); // Set to true even on error to prevent infinite loop
+      setCommentsFetched(true); 
     } finally {
       setLoadingComments(false);
     }
   }, [post?._id, API_BASE_URL]);
 
-  // Fixed useEffect - removed fetchTopLevelComments from dependencies and added commentsFetched check
   useEffect(() => {
     if (showComments && post?._id && !commentsFetched && !loadingComments) {
       fetchTopLevelComments();
@@ -65,7 +64,6 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
   const handleToggleComments = () => {
     setShowComments(prevShow => {
       const newShowValue = !prevShow;
-      // Reset commentsFetched when closing comments
       if (!newShowValue) {
         setCommentsFetched(false);
       }
@@ -245,6 +243,18 @@ const PostItem = ({ post: initialPost, onEdit, onDelete }) => {
       {post.content && (
         <div className="text-gray-200 mb-4 whitespace-pre-wrap break-words">
           {renderContentWithMentions(post.content)}
+        </div>
+      )}
+
+      {post.mediaUrl && (
+        <div className="mt-4">
+          <Link to={`/posts/${post._id}`}>
+            <img 
+              src={post.mediaUrl} 
+              alt="Post media" 
+              className="max-w-full h-auto max-h-[500px]rounded-lg object-contain mx-auto" 
+            />
+          </Link>
         </div>
       )}
 

@@ -3,9 +3,13 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { extractFirstUrl, fetchLinkMetadata } = require('../utils/linkPreviewUtils');
 const { extractUsernamesFromMentions, getMentionedUserIds } = require('../utils/mentionUtils');
+const { deleteFromCloudinary } = require('../config/cloudinaryConfig');
 
 const createPost = async (req, res, next) => {
   const { content, tags, codeSnippet } = req.body;
+
+  const mediaUrl = req.file ? req.file.path : null;
+  const mediaPublicId = req.file ? req.file.filename : null;
 
   if (!content && (!codeSnippet || !codeSnippet.code)) { 
     res.status(400);
@@ -22,6 +26,8 @@ const createPost = async (req, res, next) => {
       user: req.user._id,
       content: content || '', 
       tags: tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [],
+      mediaUrl: mediaUrl,
+      mediaPublicId: mediaPublicId,
     };
 
     if (codeSnippet && codeSnippet.code) {
@@ -56,10 +62,7 @@ const createPost = async (req, res, next) => {
       if (mentionedUsernames.size > 0) {
         const mentionedIds = await getMentionedUserIds(mentionedUsernames);
         for (const recipientId of mentionedIds) {
-          // Don't notify user if they mentioned themselves
           if (recipientId.toString() !== req.user._id.toString()) {
-            // Avoid duplicate notifications for the same mention in the same post by the same sender (more complex, can be added later)
-            // For now, create if not self-mention
             await Notification.create({
               recipient: recipientId,
               sender: req.user._id,
@@ -196,71 +199,70 @@ const getPostsByTag = async (req, res, next) => {
 };
 
 const updatePost = async (req, res, next) => {
-  const { content, tags, codeSnippet } = req.body;
   try {
+    const { content, tags, codeSnippet, removeMedia } = req.body;
+    
     const post = await Post.findById(req.params.id);
-    if (!post) { res.status(404); return next(new Error('Post not found')); }
-    if (post.user.toString() !== req.user._id.toString()) { res.status(401); return next(new Error('User not authorized to update this post')); }
 
-    const newContentProvided = content !== undefined;
-    const newContentValue = newContentProvided ? content : post.content;
-    const newCodeProvided = codeSnippet && codeSnippet.code !== undefined;
-    const newCodeValue = newCodeProvided ? codeSnippet.code : post.codeSnippet?.code;
-
-
-    if (!newContentValue && !newCodeValue) {
-        res.status(400);
-        return next(new Error('Post must include content or a code snippet after update.'));
+    if (!post) {
+      res.status(404);
+      return next(new Error('Post not found'));
     }
-    if (codeSnippet && codeSnippet.code && (codeSnippet.language === undefined && !post.codeSnippet?.language)) {
-        res.status(400);
-        return next(new Error('Please specify a language for the new/updated code snippet.'));
+    if (post.user.toString() !== req.user._id.toString()) {
+      res.status(401);
+      return next(new Error('User not authorized to update this post'));
     }
 
-    let linkPreviewNeedsUpdate = false;
     const oldContent = post.content;
+    let linkPreviewNeedsUpdate = false;
 
-    if (content !== undefined) { // content field is being explicitly updated
-      post.content = content;
-      if (content !== oldContent) { // Check if content actually changed
+    if (req.file) { 
+      if (post.mediaPublicId) {
+        await deleteFromCloudinary(post.mediaPublicId);
+      }
+      post.mediaUrl = req.file.path;
+      post.mediaPublicId = req.file.filename;
+    } else if (removeMedia === 'true') { 
+      if (post.mediaPublicId) {
+        await deleteFromCloudinary(post.mediaPublicId);
+      }
+      post.mediaUrl = undefined;
+      post.mediaPublicId = undefined;
+    }
+
+    if (content !== undefined) {
+      if (content !== oldContent) {
         linkPreviewNeedsUpdate = true;
       }
+      post.content = content;
     }
 
-    if (newContentProvided && content !== post.content) {
-      post.content = content;
-      linkPreviewNeedsUpdate = true;
-    }
     if (tags !== undefined) {
-      post.tags = tags ? tags.split(',').map(tag => tag.trim().toLowerCase()) : [];
+      post.tags = tags ? tags.split(',').map(tag => tag.trim().toLowerCase()).filter(Boolean) : [];
     }
+
     if (codeSnippet !== undefined) {
-      if (codeSnippet.code === null || codeSnippet.code === '') {
+      if (!codeSnippet.code || codeSnippet.code.trim() === '') {
         post.codeSnippet = undefined;
-      } else if (codeSnippet.code) {
-        post.codeSnippet = {
-          language: codeSnippet.language ? codeSnippet.language.trim().toLowerCase() : (post.codeSnippet?.language || 'plaintext'),
-          code: codeSnippet.code,
-        };
-      } else if (codeSnippet.language && !codeSnippet.code) {
-        if (post.codeSnippet && post.codeSnippet.code) {
-            post.codeSnippet.language = codeSnippet.language.trim().toLowerCase();
-        } else {
-            res.status(400);
-            return next(new Error('Cannot set language without code content for a new snippet.'));
+      } else {
+        if (!post.codeSnippet) post.codeSnippet = {}; 
+        post.codeSnippet.code = codeSnippet.code;
+        if (codeSnippet.language) {
+          post.codeSnippet.language = codeSnippet.language.trim().toLowerCase();
         }
       }
     }
-
+    
+    if (!post.content && !post.mediaUrl && (!post.codeSnippet || !post.codeSnippet.code)) {
+        res.status(400);
+        return next(new Error('A post cannot be left completely empty.'));
+    }
+    
     if (linkPreviewNeedsUpdate) {
       const firstUrl = extractFirstUrl(post.content);
       if (firstUrl) {
         const metadata = await fetchLinkMetadata(firstUrl);
-        if (metadata) {
-          post.linkPreview = metadata;
-        } else {
-          post.linkPreview = undefined;
-        }
+        post.linkPreview = metadata || undefined;
       } else {
         post.linkPreview = undefined;
       }
@@ -270,22 +272,17 @@ const updatePost = async (req, res, next) => {
 
     if (content !== undefined && content !== oldContent && updatedPost.content) {
       const mentionedUsernames = extractUsernamesFromMentions(updatedPost.content);
-      // TODO: More sophisticated logic might be needed here to avoid re-notifying for existing mentions
-      // or to handle removed mentions. For MVP, just notify for new mentions in updated content.
-      // A simpler approach for now: just notify based on the final content.
       if (mentionedUsernames.size > 0) {
         const mentionedIds = await getMentionedUserIds(mentionedUsernames);
         for (const recipientId of mentionedIds) {
           if (recipientId.toString() !== req.user._id.toString()) {
-            // Check if a similar mention notification already exists to avoid spam on minor edits
-            // This check could be more robust (e.g., check within a time window or only if new mention)
             const existingNotification = await Notification.findOne({
                 recipient: recipientId,
                 sender: req.user._id,
                 type: 'mention_in_post',
                 post: updatedPost._id,
             });
-            if (!existingNotification) { // Only create if no identical notification exists
+            if (!existingNotification) { 
                 await Notification.create({
                     recipient: recipientId,
                     sender: req.user._id,
@@ -300,6 +297,7 @@ const updatePost = async (req, res, next) => {
 
     await updatedPost.populate('user', 'username displayName profilePicture');
     res.status(200).json(updatedPost);
+
   } catch (error) {
     next(error);
   }

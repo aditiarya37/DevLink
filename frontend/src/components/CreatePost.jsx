@@ -14,6 +14,8 @@ const CreatePost = ({ onPostCreated }) => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [imageFile, setImageFile] = useState(null); 
+  const [imagePreview, setImagePreview] = useState('');
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const commonLanguages = [
@@ -44,46 +46,66 @@ const CreatePost = ({ onPostCreated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content.trim() && !code.trim()) {
-      setError('Please provide either main content or a code snippet.');
+    
+    if (!content.trim() && !imageFile && !code.trim()) {
+      alert('Please add some content, an image, or a code snippet.');
       return;
     }
-    if (code.trim() && !codeLanguage.trim()) {
-        setError('Please select a language for your code snippet.');
-        return;
-    }
+
+    setLoading(true);
     setError('');
     setSuccessMessage('');
-    setLoading(true);
+
+    const formData = new FormData();
+    
+    formData.append('content', content);
+    formData.append('tags', tags);
+    
+    if (code.trim()) {
+      formData.append('codeSnippet[code]', code);
+      formData.append('codeSnippet[language]', codeLanguage.trim().toLowerCase() || 'plaintext');
+    }
+
+    if (imageFile) {
+      formData.append('postImage', imageFile);
+    }
+
     try {
-      const postData = { content, tags };
-      if (code.trim()) {
-        postData.codeSnippet = {
-          language: codeLanguage.trim().toLowerCase() || 'plaintext',
-          code: code,
-        };
-      }
-      const config = { 
+      const config = {
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+          'Authorization': `Bearer ${token}`,
+        }
       };
-      const response = await axios.post(`${API_BASE_URL}/posts`, postData, config);
+
+      const response = await axios.post(`${API_BASE_URL}/posts`, formData, config);
+      
+      if (onPostCreated) {
+        onPostCreated(response.data);
+      }
+
       setSuccessMessage('Post created successfully!');
       setContent('');
       setTags('');
       setCode('');
       setCodeLanguage('');
-      if (onPostCreated) {
-        onPostCreated(response.data);
-      }
+      setImageFile(null);
+      setImagePreview('');
+      
       setTimeout(() => setSuccessMessage(''), 3000);
+
     } catch (err) {
       console.error('Error creating post:', err.response ? err.response.data : err.message);
       setError(err.response?.data?.message || 'Failed to create post.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file); 
+      setImagePreview(URL.createObjectURL(file)); 
     }
   };
 
@@ -124,6 +146,43 @@ const CreatePost = ({ onPostCreated }) => {
               )}
             />
           </MentionsInput>
+        </div>
+
+        <div className="my-4">
+          {imagePreview && (
+            <div className="relative group">
+              <img src={imagePreview} alt="Post preview" className="w-full h-auto max-h-96 object-contain rounded-lg" />
+              <button
+                type="button"
+                onClick={() => {
+                  setImageFile(null);
+                  setImagePreview('');
+                }}
+                className="absolute top-2 right-2 bg-black bg-opacity-60 text-white rounded-full p-1.5 hover:bg-opacity-80 transition-opacity"
+                aria-label="Remove image"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          <div className="mt-2">
+            <label htmlFor="image-upload" className="cursor-pointer text-sky-400 hover:text-sky-300 font-semibold flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Add Image
+            </label>
+            <input
+              id="image-upload"
+              type="file"
+              accept="image/png, image/jpeg, image/gif"
+              className="hidden"
+              onChange={handleImageChange}
+            />
+          </div>
         </div>
 
         <div className="border-t border-b border-gray-700 py-4 space-y-3">

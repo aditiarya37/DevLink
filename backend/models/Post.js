@@ -54,6 +54,12 @@ const PostSchema = new mongoose.Schema(
       default: 0,
     },
     linkPreview: LinkPreviewSchema,
+    mediaUrl: {
+      type: String,
+    },
+    mediaPublicId: {
+      type: String,
+    },
   },
   {
     timestamps: true,
