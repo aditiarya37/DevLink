@@ -1,4 +1,3 @@
-import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 import HomePage from '../pages/HomePage';
@@ -12,6 +11,7 @@ import TagFeedPage from '../pages/TagFeedPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage'; 
 import ResetPasswordPage from '../pages/ResetPasswordPage';
 import SinglePostPage from '../pages/SinglePostPage';
+import AuthCallbackPage from '../pages/AuthCallbackPage';
 
 import ProtectedRoute from '../components/ProtectedRoute';
 import NotificationsPage from '../pages/NotificationsPage';
@@ -28,6 +28,7 @@ const AppRoutes = () => {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} /> 
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/posts/:postId" element={<SinglePostPage />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />

@@ -110,7 +110,6 @@ const forgotPassword = async (req, res, next) => {
     const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
-      // Generic response for security
       return res.status(200).json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
@@ -189,9 +188,31 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+const githubCallback = (req, res) => {
+  const user = req.user;
+
+  const token = generateToken(user._id);
+
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  
+  const userForClient = {
+    _id: user._id,
+    username: user.username,
+    displayName: user.displayName,
+    profilePicture: user.profilePicture,
+  };
+  
+  const userQueryParam = encodeURIComponent(JSON.stringify(userForClient));
+  
+  const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${userQueryParam}`;
+  
+  res.redirect(redirectUrl);
+};
+
 module.exports = {
-    registerUser,
-    loginUser,
-    forgotPassword,
-    resetPassword,
+  registerUser,
+  loginUser,
+  forgotPassword,
+  resetPassword,
+  githubCallback,
 };

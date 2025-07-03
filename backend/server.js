@@ -3,6 +3,8 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const mongoose = require('mongoose');
+const passport = require('passport'); 
+dotenv.config();
 
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -10,7 +12,8 @@ const postRoutes = require('./routes/postRoutes');
 const notificationRoutes = require('./routes/notificationRoutes'); 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware'); 
 
-dotenv.config();
+require('./config/passportConfig');
+
 connectDB();
 
 const app = express();
@@ -21,6 +24,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(passport.initialize());
 
 app.get('/api/test', (req, res) => {
   res.json({ message: 'Hello from the DevLink backend! Test successful. CORS is working!' });

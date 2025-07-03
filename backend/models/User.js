@@ -29,7 +29,10 @@ const EducationSchema = new mongoose.Schema({
 const UserSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: [true, 'Please provide a username'],
+    required: [
+      function() { return this.authProvider === 'local'; }, 
+      'Please provide an email'
+    ],
     unique: true,
     trim: true,
     lowercase: true,
@@ -39,17 +42,39 @@ const UserSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: [true, 'Please provide an email'],
+    required: [
+      function() { return this.authProvider === 'local'; },
+      'Please provide an email'
+    ],
     unique: true,
     trim: true,
     lowercase: true,
-    match: [ /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email address', ],
+    sparse: true, 
+    
+    validate: {
+      validator: function(v) {
+        if (this.authProvider !== 'local' && !v) {
+          return true;
+        }
+        return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(v);
+      },
+      message: props => `${props.value} is not a valid email address!`
+    }
   },
   password: {
     type: String,
-    required: [true, 'Please provide a password'],
-    minlength: [6, 'Password must be at least 6 characters long'],
     select: false,
+  },
+  githubId: {
+    type: String,
+    unique: true,
+    sparse: true, 
+  },
+  authProvider: {
+    type: String,
+    required: true,
+    enum: ['local', 'github', 'google'],
+    default: 'local',
   },
   displayName: {
     type: String,
@@ -89,12 +114,8 @@ UserSchema.index({ skills: 1 });
 UserSchema.index({ username: 'text', displayName: 'text' }); 
 
 UserSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
+  if (!this.isModified('password') || this.authProvider !== 'local') {
     return next();
-  }
-  if (this.isModified('password') && this.passwordResetToken) {
-      this.passwordResetToken = undefined;
-      this.passwordResetExpires = undefined;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);

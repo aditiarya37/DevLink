@@ -110,6 +110,9 @@ export const AuthProvider = ({ children }) => {
   }, [API_BASE_URL]);
 
   useEffect(() => {
+    if (window.location.pathname === '/auth/callback') {
+      return; 
+    }
     const loadUserAndNotifications = async () => {
       const tokenFromStorage = localStorage.getItem('token');
       if (tokenFromStorage) {
@@ -193,6 +196,7 @@ export const AuthProvider = ({ children }) => {
         fetchUnreadNotificationCount,
         updateUnreadCount,
         decrementUnreadCount,
+        dispatch,
       }}
     >
       {children}
