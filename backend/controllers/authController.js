@@ -95,6 +95,7 @@ const loginUser = async (req,res,next) => {
         console.error('Login Error:', error.message);
         const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
         res.status(statusCode || 500).json({message: error.message});
+        next(error);
     }
 };
 

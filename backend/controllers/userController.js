@@ -19,7 +19,7 @@ const getUserProfileByUsername = async (req, res, next) => {
   try {
     const username = req.params.username.toLowerCase();
     const user = await User.findOne({ username: username })
-      .select('username displayName profilePicture bio location skills links workExperience education followers following createdAt');
+      .select('username displayName profilePicture bio location skills links experience education followers following createdAt');
 
     if (user) {
       const userProfile = {
@@ -31,7 +31,7 @@ const getUserProfileByUsername = async (req, res, next) => {
         location: user.location,
         skills: user.skills,
         links: user.links,
-        workExperience: user.workExperience,
+        experience: user.experience,
         education: user.education,
         followerCount: user.followers ? user.followers.length : 0,
         followingCount: user.following ? user.following.length : 0,
@@ -74,8 +74,8 @@ const updateUserProfile = async (req, res, next) => {
       }
 
 
-      if (req.body.workExperience !== undefined) {
-        user.workExperience = req.body.workExperience;
+      if (req.body.experience !== undefined) {
+        user.experience = req.body.experience;
       }
       if (req.body.education !== undefined) {
         user.education = req.body.education;
@@ -93,7 +93,7 @@ const updateUserProfile = async (req, res, next) => {
         location: updatedUser.location,
         skills: updatedUser.skills,
         links: updatedUser.links,
-        workExperience: updatedUser.workExperience,
+        experience: updatedUser.experience,
         education: updatedUser.education,
         following: updatedUser.following,
         followers: updatedUser.followers,
@@ -206,6 +206,56 @@ const searchUsers = async (req, res, next) => {
   }
 };
 
+const addWorkExperience = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      res.status(404);
+      return next(new Error('User not found.'));
+    }
+    if (!user.experience) {
+      user.experience = [];
+    }
+    user.experience.unshift(req.body);
+    await user.save();
+    res.status(201).json(user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateWorkExperience = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const experienceToUpdate = user.experience.id(req.params.exp_id);
+    if (!experienceToUpdate) {
+      res.status(404);
+      return next(new Error('Experience entry not found.'));
+    }
+    Object.assign(experienceToUpdate, req.body);
+    await user.save();
+    res.status(200).json(user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteWorkExperience = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const removeIndex = user.experience.map(item => item.id).indexOf(req.params.exp_id);
+    if (removeIndex === -1) {
+      res.status(404);
+      return next(new Error('Experience entry not found.'));
+    }
+    user.experience.splice(removeIndex, 1);
+    await user.save();
+    res.status(200).json(user);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyProfile,
   getUserProfileByUsername,
@@ -213,4 +263,7 @@ module.exports = {
   followUser,
   unfollowUser,
   searchUsers,
+  addWorkExperience,
+  updateWorkExperience,
+  deleteWorkExperience,
 };

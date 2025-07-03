@@ -8,7 +8,7 @@ const LinkSchema = new mongoose.Schema({
     website: { type: String, trim: true, default: '' },
 }, { _id: false });
 
-const WorkExperienceSchema = new mongoose.Schema({
+const experienceSchema = new mongoose.Schema({
     title: { type: String, trim: true, required: true },
     company: { type: String, trim: true, required: true },
     location: { type: String, trim: true, default: '' },
@@ -75,7 +75,7 @@ const UserSchema = new mongoose.Schema({
   },
   skills: [ { type: String, trim: true, lowercase: true, } ],
   links: { type: LinkSchema, default: () => ({}) },
-  workExperience: [WorkExperienceSchema],
+  experience: [experienceSchema],
   education: [EducationSchema],
   createdAt: {
     type: Date,

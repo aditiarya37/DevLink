@@ -16,6 +16,7 @@ const REGISTER_SUCCESS = 'REGISTER_SUCCESS';
 const REGISTER_FAIL = 'REGISTER_FAIL';
 const LOGOUT = 'LOGOUT';
 const USER_LOADED = 'USER_LOADED';
+const UPDATE_USER_PROFILE = 'UPDATE_USER_PROFILE'; 
 const AUTH_ERROR = 'AUTH_ERROR';
 const CLEAR_ERRORS = 'CLEAR_ERRORS';
 const SET_LOADING = 'SET_LOADING';
@@ -71,6 +72,14 @@ const authReducer = (state, action) => {
       return { ...state, unreadNotificationCount: action.payload };
     case DECREMENT_UNREAD_NOTIFICATION_COUNT:
       return { ...state, unreadNotificationCount: Math.max(0, state.unreadNotificationCount - action.payload) };
+    case UPDATE_USER_PROFILE:
+      const updatedUser = action.payload; 
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      return {
+        ...state,
+        user: updatedUser,
+        loading: false,
+      };
     default:
       return state;
   }
@@ -156,6 +165,10 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: DECREMENT_UNREAD_NOTIFICATION_COUNT, payload: count });
   }, []);
 
+  const updateProfile = useCallback((newUserData) => {
+    dispatch({ type: UPDATE_USER_PROFILE, payload: newUserData });
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -168,6 +181,7 @@ export const AuthProvider = ({ children }) => {
         register,
         login,
         logout,
+        updateProfile,
         clearErrors,
         fetchUnreadNotificationCount,
         updateUnreadCount,

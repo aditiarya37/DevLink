@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import PostItem from '../components/PostItem';
 import EditPostModal from '../components/EditPostModal';
-import { FaGithub, FaLinkedin, FaLink, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaGithub, FaLinkedin, FaLink, FaMapMarkerAlt, FaBriefcase } from 'react-icons/fa';
 
 const ProfilePage = () => {
   const { username: routeUsername } = useParams();
@@ -217,6 +217,36 @@ const ProfilePage = () => {
                 </div>
             </div>
         )}
+
+        {profileUser.experience && profileUser.experience.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-gray-700">
+                <h3 className="text-xl font-semibold text-sky-300 mb-4 flex items-center">
+                    <FaBriefcase className="mr-2.5 h-5 w-5" />
+                    Work Experience
+                </h3>
+                <div className="space-y-6">
+                    {profileUser.experience.map(exp => (
+                        <div key={exp._id} className="pl-5 relative border-l-2 border-gray-700">
+                            <div className="absolute w-4 h-4 bg-sky-500 rounded-full -left-2 top-1 border-2 border-gray-800"></div>
+                            
+                            <h4 className="font-bold text-lg text-white">{exp.title}</h4>
+                            <p className="text-gray-300">{exp.company}</p>
+                            <p className="text-sm text-gray-400 mb-2">
+                                {new Date(exp.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })} - 
+                                {exp.endDate ? ` ${new Date(exp.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}` : ' Present'}
+                            </p>
+                            
+                            {exp.description && (
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap">
+                                    {exp.description}
+                                </p>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
       </div>
 
       <div>
