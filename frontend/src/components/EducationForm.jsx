@@ -1,4 +1,4 @@
-const ExperienceForm = ({
+const EducationForm = ({
   formData,
   onFormChange,
   onSave,
@@ -8,58 +8,59 @@ const ExperienceForm = ({
   return (
     <div className="bg-gray-900/50 p-6 my-4 rounded-lg border border-gray-700">
       <h3 className="text-xl font-semibold text-sky-300 mb-4">
-        {isEditMode ? "Edit Experience" : "Add New Experience"}
+        {isEditMode ? "Edit Education" : "Add New Education"}
       </h3>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label
-              htmlFor="title"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Title*
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={onFormChange}
-              required
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="company"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Company*
-            </label>
-            <input
-              type="text"
-              name="company"
-              value={formData.company}
-              onChange={onFormChange}
-              required
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
-            />
-          </div>
-        </div>
-
         <div>
           <label
-            htmlFor="location"
+            htmlFor="institution"
             className="block text-sm font-medium text-gray-300"
           >
-            Location
+            School or University*
           </label>
           <input
             type="text"
-            name="location"
-            value={formData.location}
+            name="institution"
+            value={formData.institution}
             onChange={onFormChange}
+            required
             className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
           />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label
+              htmlFor="degree"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Degree
+            </label>
+            <input
+              type="text"
+              name="degree"
+              value={formData.degree}
+              onChange={onFormChange}
+              placeholder="e.g., Bachelor of Science"
+              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="fieldOfStudy"
+              className="block text-sm font-medium text-gray-300"
+            >
+              Field of Study
+            </label>
+            <input
+              type="text"
+              name="fieldOfStudy"
+              value={formData.fieldOfStudy}
+              onChange={onFormChange}
+              placeholder="e.g., Computer Science"
+              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -68,14 +69,13 @@ const ExperienceForm = ({
               htmlFor="startDate"
               className="block text-sm font-medium text-gray-300"
             >
-              Start Date*
+              Start Date
             </label>
             <input
               type="month"
               name="startDate"
               value={formData.startDate}
               onChange={onFormChange}
-              required
               className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
             />
           </div>
@@ -94,6 +94,23 @@ const ExperienceForm = ({
               className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
             />
           </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="grade"
+            className="block text-sm font-medium text-gray-300"
+          >
+            Grade/CGPA
+          </label>
+          <input
+            type="text"
+            name="grade"
+            value={formData.grade || ""}
+            onChange={onFormChange}
+            placeholder="e.g., 8.5 CGPA or 85%"
+            className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm p-2 text-white"
+          />
         </div>
 
         <div>
@@ -125,7 +142,7 @@ const ExperienceForm = ({
             onClick={onSave}
             className="px-4 py-2 rounded-md text-white bg-sky-600 hover:bg-sky-700"
           >
-            Save Experience
+            Save Education
           </button>
         </div>
       </div>
@@ -133,4 +150,4 @@ const ExperienceForm = ({
   );
 };
 
-export default ExperienceForm;
+export default EducationForm;
