@@ -1,14 +1,21 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
-const initialState = {
-  token: localStorage.getItem('token'),
-  isAuthenticated: null,
-  user: null,
-  loading: true,
-  error: null,
-  unreadNotificationCount: 0,
+const getInitialState = () => {
+  const token = localStorage.getItem('token');
+  const user = localStorage.getItem('user');
+  
+  return {
+    token: token,
+    isAuthenticated: !!token, 
+    user: user ? JSON.parse(user) : null,
+    loading: !!token,
+    error: null,
+    unreadNotificationCount: 0,
+  };
 };
+
+const initialState = getInitialState();
 
 const LOGIN_SUCCESS = 'LOGIN_SUCCESS';
 const LOGIN_FAIL = 'LOGIN_FAIL';

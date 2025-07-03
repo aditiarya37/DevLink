@@ -9,7 +9,7 @@ import EditPostModal from '../components/EditPostModal';
 const HomePage = () => {
   const { isAuthenticated, user, loading: authLoading, token } = useAuth();
   const [posts, setPosts] = useState([]);
-  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [loadingPosts, setLoadingPosts] = useState(true);
   const [postsError, setPostsError] = useState('');
   const [editingPost, setEditingPost] = useState(null);
 
@@ -40,11 +40,19 @@ const HomePage = () => {
     } finally {
       setLoadingPosts(false);
     }
-  }, [API_BASE_URL, isAuthenticated, token]);
+  }, [API_BASE_URL, isAuthenticated]);
 
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    const action = () => {
+      if (!authLoading) {
+        fetchPosts();
+      } else {
+        setPosts([]); 
+        setLoadingPosts(true);
+      }
+    };
+    action();
+  }, [authLoading, fetchPosts]);
 
   const handlePostCreated = (newPost) => {
     if (isAuthenticated) {
@@ -73,7 +81,7 @@ const HomePage = () => {
     );
   };
 
-  if (authLoading && isAuthenticated === null) {
+  if (authLoading) {
     return (
       <div className="container mx-auto p-4 text-center">
         <p className="text-xl text-sky-400">Loading DevLink...</p>
