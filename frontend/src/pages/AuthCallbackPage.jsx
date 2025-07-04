@@ -1,32 +1,37 @@
-import React, { useEffect, useContext, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import AuthContext from '../context/AuthContext';
+import React, { useEffect, useContext, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const AuthCallbackPage = () => {
   const [searchParams] = useSearchParams();
-  const { dispatch } = useContext(AuthContext);
-  const [status, setStatus] = useState('Finalizing login...');
+  const { dispatch } = useAuth();
+  const navigate = useNavigate();
+  const [status, setStatus] = useState("Finalizing login...");
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    const userString = searchParams.get('user');
+    const token = searchParams.get("token");
+    const userString = searchParams.get("user");
 
     if (token && userString && dispatch) {
       try {
         const user = JSON.parse(decodeURIComponent(userString));
-        
-        dispatch({
-          type: 'LOGIN_SUCCESS',
-          payload: { token, ...user }
-        });
-        
-        setStatus('Success! Redirecting you now...');
 
+        dispatch({
+          type: "LOGIN_SUCCESS",
+          payload: { token, ...user },
+        });
+
+        setStatus("Success! Redirecting you now...");
+        setTimeout(() => {
+          navigate("/");
+        }, 1000);
       } catch (error) {
-        setStatus('Error: Could not process login data. Please try again.');
+        setStatus("Error: Could not process login data. Please try again.");
+        setTimeout(() => navigate("/login"), 3000);
       }
     } else {
-      setStatus('Error: Invalid login attempt. No token found.');
+      setStatus("Error: Invalid login attempt. No token found.");
+      setTimeout(() => navigate("/login"), 3000);
     }
   }, [searchParams, dispatch]);
 
