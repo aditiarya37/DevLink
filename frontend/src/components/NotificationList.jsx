@@ -1,38 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { useAuth } from '../context/AuthContext';
-import NotificationItem from './NotificationItem';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import { useAuth } from "../context/AuthContext";
+import NotificationItem from "./NotificationItem";
 
 const NotificationList = ({ closeDropdown }) => {
   const { token, updateUnreadCount } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState("");
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  const fetchNotifications = useCallback(async (pageNum = 1) => {
+  const fetchNotifications = useCallback(async () => {
     if (!token) {
-        setLoading(false);
-        return;
+      setLoading(false);
+      return;
     }
-    setLoading(pageNum === 1); 
-    setError('');
+    setLoading(true);
+    setError("");
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response = await axios.get(`${API_BASE_URL}/notifications?page=${pageNum}&limit=7`, config);
-      
-      if (pageNum === 1) {
-        setNotifications(response.data.notifications || []);
-      } else {
-      }
+      const response = await axios.get(
+        `${API_BASE_URL}/notifications?page=1&limit=7`,
+        config,
+      );
+      setNotifications(response.data.notifications || []);
       updateUnreadCount(response.data.unreadCount || 0);
-      setHasMore((response.data.notifications || []).length === 7 && response.data.totalPages > pageNum);
     } catch (err) {
-      console.error("Error fetching notifications:", err);
       setError(err.response?.data?.message || "Could not load notifications.");
     } finally {
       setLoading(false);
@@ -40,62 +34,114 @@ const NotificationList = ({ closeDropdown }) => {
   }, [token, API_BASE_URL, updateUnreadCount]);
 
   useEffect(() => {
-    fetchNotifications(1); 
+    fetchNotifications();
   }, [fetchNotifications]);
 
   const handleNotificationItemClicked = (notificationId) => {
-    setNotifications(prev => 
-        prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
+    setNotifications((prev) =>
+      prev.map((n) => (n._id === notificationId ? { ...n, read: true } : n)),
     );
-    if(closeDropdown) closeDropdown();
+    closeDropdown?.();
   };
 
   const handleMarkAllAsRead = async () => {
     if (!token) return;
     try {
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        await axios.patch(`${API_BASE_URL}/notifications/read-all`, {}, config);
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-        updateUnreadCount(0);
-    } catch (err) {
-        console.error("Error marking all notifications as read:", err);
-        alert("Failed to mark all as read.");
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.patch(`${API_BASE_URL}/notifications/read-all`, {}, config);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      updateUnreadCount(0);
+    } catch {
+      alert("Failed to mark all as read.");
     }
   };
 
   if (loading && notifications.length === 0) {
-    return <div className="p-4 text-sm text-gray-400 text-center">Loading notifications...</div>;
+    return (
+      <div
+        style={{
+          padding: "1.5rem",
+          textAlign: "center",
+          color: "var(--text-muted)",
+          fontSize: "0.82rem",
+        }}
+      >
+        Loading...
+      </div>
+    );
   }
+
   if (error) {
-    return <div className="p-4 text-sm text-red-400 text-center">{error}</div>;
+    return (
+      <div
+        style={{
+          padding: "1.5rem",
+          textAlign: "center",
+          color: "#f87171",
+          fontSize: "0.82rem",
+        }}
+      >
+        {error}
+      </div>
+    );
   }
+
   if (!loading && notifications.length === 0) {
-    return <div className="p-4 text-sm text-gray-400 text-center">No new notifications.</div>;
+    return (
+      <div
+        style={{
+          padding: "1.5rem",
+          textAlign: "center",
+          color: "var(--text-dim)",
+          fontSize: "0.82rem",
+        }}
+      >
+        No new notifications.
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="max-h-80 overflow-y-auto" role="none">
-        <ul>
-          {notifications.map(notification => (
-            <NotificationItem
-              key={notification._id}
-              notification={notification}
-              onNotificationClicked={handleNotificationItemClicked}
-            />
-          ))}
-        </ul>
+      <div style={{ maxHeight: "320px", overflowY: "auto" }}>
+        {notifications.map((notification) => (
+          <NotificationItem
+            key={notification._id}
+            notification={notification}
+            onMarkedAsRead={handleNotificationItemClicked}
+          />
+        ))}
       </div>
-       {notifications.some(n => !n.read) && ( 
-        <div className="px-4 py-2 border-t border-gray-600 text-center block" role="none">
-            <button 
-                onClick={handleMarkAllAsRead}
-                className="text-xs text-sky-400 hover:underline"
-            >
-                Mark all as read
-            </button>
+      {notifications.some((n) => !n.read) && (
+        <div
+          style={{
+            padding: "0.65rem 1.25rem",
+            borderTop: "1px solid var(--border-subtle)",
+            textAlign: "center",
+          }}
+        >
+          <button
+            onClick={handleMarkAllAsRead}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "0.75rem",
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-body)",
+              transition: "color 200ms",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.color = "var(--accent-green)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-muted)")
+            }
+          >
+            Mark all as read
+          </button>
         </div>
-       )}
+      )}
     </>
   );
 };

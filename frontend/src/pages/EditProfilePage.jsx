@@ -73,6 +73,53 @@ const EditProfilePage = () => {
     }
   }, [currentUser, authLoading]);
 
+  const handleChange = (e) =>
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const skillsArray = formData.skills
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+      const payload = {
+        displayName: formData.displayName,
+        bio: formData.bio,
+        profilePicture: formData.profilePicture,
+        location: formData.location,
+        skills: skillsArray,
+        links: {
+          github: formData.githubLink,
+          linkedin: formData.linkedinLink,
+          website: formData.websiteLink,
+        },
+        experience: experienceList,
+        education: educationList,
+      };
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.put(
+        `${API_BASE_URL}/users/me/update`,
+        payload,
+        config,
+      );
+      updateProfile(response.data);
+      setSuccessMessage("Profile updated! Redirecting...");
+      setTimeout(
+        () => navigate(`/profile/${currentUser.username.toLowerCase()}`),
+        1500,
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Experience handlers
   const onDragEndExperience = (result) => {
     if (!result.destination) return;
     const items = Array.from(experienceList);
@@ -89,41 +136,6 @@ const EditProfilePage = () => {
     setEducationList(items);
   };
 
-  const handleAddNewExperience = () => {
-    setEditingExperienceId(null);
-    setExperienceFormData({
-      title: "",
-      company: "",
-      location: "",
-      startDate: "",
-      endDate: "",
-      description: "",
-    });
-    setShowExperienceForm(true);
-  };
-
-  const handleEditExperience = (exp) => {
-    setEditingExperienceId(exp._id);
-    setExperienceFormData({
-      ...exp,
-      startDate: exp.startDate || "",
-      endDate: exp.endDate || "",
-    });
-    setShowExperienceForm(true);
-  };
-
-  const handleCancelExperienceForm = () => {
-    setShowExperienceForm(false);
-    setEditingExperienceId(null);
-  };
-
-  const handleExperienceFormChange = (e) => {
-    setExperienceFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
-
   const handleSaveExperience = async () => {
     const config = { headers: { Authorization: `Bearer ${token}` } };
     try {
@@ -132,79 +144,41 @@ const EditProfilePage = () => {
         response = await axios.put(
           `${API_BASE_URL}/users/profile/experience/${editingExperienceId}`,
           experienceFormData,
-          config
+          config,
         );
       } else {
         response = await axios.post(
           `${API_BASE_URL}/users/profile/experience`,
           experienceFormData,
-          config
+          config,
         );
       }
       setExperienceList(response.data.experience);
       updateProfile(response.data);
-      handleCancelExperienceForm();
+      setShowExperienceForm(false);
+      setEditingExperienceId(null);
     } catch (err) {
       alert(
         "Error saving experience: " +
-          (err.response?.data?.message || err.message)
+          (err.response?.data?.message || err.message),
       );
     }
   };
 
-  const handleDeleteExperience = async (experienceId) => {
-    if (window.confirm("Are you sure?")) {
+  const handleDeleteExperience = async (expId) => {
+    if (window.confirm("Delete this experience?")) {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       try {
         const { data } = await axios.delete(
-          `${API_BASE_URL}/users/profile/experience/${experienceId}`,
-          config
+          `${API_BASE_URL}/users/profile/experience/${expId}`,
+          config,
         );
         updateProfile(data);
+        setExperienceList(data.experience);
       } catch (err) {
-        alert(
-          "Error deleting experience: " +
-            (err.response?.data?.message || err.message)
-        );
+        alert("Error deleting experience.");
       }
     }
-  };
-
-  const handleAddNewEducation = () => {
-    setEditingEducationId(null);
-    setEducationFormData({
-      institution: "",
-      degree: "",
-      fieldOfStudy: "",
-      startDate: "",
-      endDate: "",
-      grade: "",
-      description: "",
-    });
-    setShowEducationForm(true);
-  };
-
-  const handleEditEducation = (edu) => {
-    setEditingEducationId(edu._id);
-    setEducationFormData({
-      ...edu,
-      startDate: edu.startDate || "",
-      endDate: edu.endDate || "",
-      grade: edu.grade || "",
-    });
-    setShowEducationForm(true);
-  };
-
-  const handleCancelEducationForm = () => {
-    setShowEducationForm(false);
-    setEditingEducationId(null);
-  };
-
-  const handleEducationFormChange = (e) => {
-    setEducationFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
   };
 
   const handleSaveEducation = async () => {
@@ -215,99 +189,42 @@ const EditProfilePage = () => {
         response = await axios.put(
           `${API_BASE_URL}/users/profile/education/${editingEducationId}`,
           educationFormData,
-          config
+          config,
         );
       } else {
         response = await axios.post(
           `${API_BASE_URL}/users/profile/education`,
           educationFormData,
-          config
+          config,
         );
       }
       setEducationList(response.data.education);
       updateProfile(response.data);
-      handleCancelEducationForm();
+      setShowEducationForm(false);
+      setEditingEducationId(null);
     } catch (err) {
       alert(
         "Error saving education: " +
-          (err.response?.data?.message || err.message)
+          (err.response?.data?.message || err.message),
       );
     }
   };
 
-  const handleDeleteEducation = async (educationId) => {
-    if (window.confirm("Are you sure?")) {
+  const handleDeleteEducation = async (eduId) => {
+    if (window.confirm("Delete this education entry?")) {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       try {
         const { data } = await axios.delete(
-          `${API_BASE_URL}/users/profile/education/${educationId}`,
-          config
+          `${API_BASE_URL}/users/profile/education/${eduId}`,
+          config,
         );
         updateProfile(data);
+        setEducationList(data.education);
       } catch (err) {
-        alert(
-          "Error deleting education: " +
-            (err.response?.data?.message || err.message)
-        );
+        alert("Error deleting education.");
       }
     }
   };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccessMessage("");
-    try {
-      const skillsArray = formData.skills
-        .split(",")
-        .map((skill) => skill.trim().toLowerCase())
-        .filter(Boolean);
-      const payload = {
-        displayName: formData.displayName,
-        bio: formData.bio,
-        profilePicture: formData.profilePicture,
-        location: formData.location,
-        skills: skillsArray,
-        links: {
-          github: formData.githubLink,
-          linkedin: formData.linkedinLink,
-          website: formData.websiteLink,
-        },
-        experience: experienceList,
-        education: educationList,
-      };
-
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response = await axios.put(
-        `${API_BASE_URL}/users/me/update`,
-        payload,
-        config
-      );
-      updateProfile(response.data);
-      setSuccessMessage("Profile updated successfully! Redirecting...");
-      setTimeout(
-        () => navigate(`/profile/${currentUser.username.toLowerCase()}`),
-        1500
-      );
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to update profile.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  if (authLoading || loading) {
-    return (
-      <div className="p-8 text-center text-sky-400">
-        Loading Profile Editor...
-      </div>
-    );
-  }
 
   const formatMonthYear = (dateString) => {
     if (!dateString) return "Present";
@@ -318,388 +235,636 @@ const EditProfilePage = () => {
     });
   };
 
-  return (
-    <div className="container mx-auto p-4 max-w-3xl mt-20 md:mt-24">
-      <div className="bg-gray-800 shadow-xl rounded-lg p-6 md:p-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <h1 className="text-3xl font-bold text-sky-400 mb-6 text-center">
-            Edit Your Profile
-          </h1>
-          {error && (
-            <p className="mb-4 text-center text-red-400 bg-red-900/50 p-3 rounded">
-              {error}
-            </p>
-          )}
-          {successMessage && (
-            <p className="mb-4 text-center text-green-400 bg-green-900/50 p-3 rounded">
-              {successMessage}
-            </p>
-          )}
+  if (authLoading || loading) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "60vh",
+        }}
+      >
+        <div
+          style={{
+            width: "28px",
+            height: "28px",
+            border: "2px solid var(--border-subtle)",
+            borderTop: "2px solid var(--accent-green)",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
+      </div>
+    );
+  }
 
-          <div>
-            <label
-              htmlFor="displayName"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Display Name
-            </label>
+  return (
+    <div
+      style={{
+        maxWidth: "680px",
+        margin: "0 auto",
+        padding: "2rem 1.25rem 4rem",
+      }}
+    >
+      <div style={{ marginBottom: "2rem" }}>
+        <h1
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 800,
+            fontSize: "1.75rem",
+            color: "var(--text-primary)",
+            letterSpacing: "-0.03em",
+          }}
+        >
+          Edit Profile
+        </h1>
+        <p
+          style={{
+            fontSize: "0.875rem",
+            color: "var(--text-muted)",
+            marginTop: "0.25rem",
+          }}
+        >
+          Update your developer presence
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        {error && (
+          <div
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: "var(--radius-md)",
+              padding: "0.75rem 1rem",
+              color: "#f87171",
+              fontSize: "0.85rem",
+              marginBottom: "1.25rem",
+            }}
+          >
+            {error}
+          </div>
+        )}
+        {successMessage && (
+          <div
+            style={{
+              background: "rgba(185,244,61,0.08)",
+              border: "1px solid rgba(185,244,61,0.2)",
+              borderRadius: "var(--radius-md)",
+              padding: "0.75rem 1rem",
+              color: "var(--accent-green)",
+              fontSize: "0.85rem",
+              marginBottom: "1.25rem",
+            }}
+          >
+            {successMessage}
+          </div>
+        )}
+
+        {/* Basic Info Section */}
+        <FormSection title="Basic Info">
+          <FormField label="Display Name">
             <input
               type="text"
               name="displayName"
-              id="displayName"
               value={formData.displayName}
               onChange={handleChange}
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
+              className="input-field"
+              placeholder="Your Display Name"
             />
-          </div>
-          <div>
-            <label
-              htmlFor="bio"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Bio
-            </label>
+          </FormField>
+          <FormField label="Bio">
             <textarea
               name="bio"
-              id="bio"
               rows="4"
               value={formData.bio}
               onChange={handleChange}
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
-              placeholder="Tell us a bit about yourself..."
-            ></textarea>
-          </div>
-          <div>
-            <label
-              htmlFor="profilePicture"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Profile Picture URL
-            </label>
-            <input
-              type="text"
-              name="profilePicture"
-              id="profilePicture"
-              value={formData.profilePicture}
-              onChange={handleChange}
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
-              placeholder="https://example.com/your-image.png"
+              className="input-field"
+              placeholder="Tell us about yourself..."
+              style={{ resize: "vertical" }}
             />
+          </FormField>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "0.75rem",
+            }}
+          >
+            <FormField label="Profile Picture URL">
+              <input
+                type="text"
+                name="profilePicture"
+                value={formData.profilePicture}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="https://..."
+              />
+            </FormField>
+            <FormField label="Location">
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="City, Country"
+              />
+            </FormField>
           </div>
-          <div>
-            <label
-              htmlFor="location"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Location
-            </label>
-            <input
-              type="text"
-              name="location"
-              id="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
-              placeholder="e.g., City, Country"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="skills"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Skills (comma-separated)
-            </label>
+          <FormField label="Skills (comma-separated)">
             <input
               type="text"
               name="skills"
-              id="skills"
               value={formData.skills}
               onChange={handleChange}
-              className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
-              placeholder="e.g., react, nodejs, python"
+              className="input-field"
+              placeholder="react, nodejs, python..."
             />
-          </div>
-          <fieldset className="border border-gray-700 p-4 rounded-md">
-            <legend className="text-sm font-medium text-gray-300 px-2">
-              Links
-            </legend>
-            <div className="space-y-4 mt-2">
-              <div>
-                <label
-                  htmlFor="githubLink"
-                  className="block text-xs font-medium text-gray-400"
-                >
-                  GitHub Profile URL
-                </label>
-                <input
-                  type="url"
-                  name="githubLink"
-                  id="githubLink"
-                  value={formData.githubLink}
-                  onChange={handleChange}
-                  className="mt-1 block w-full bg-gray-600 border-gray-500 rounded-md p-2 text-white"
-                  placeholder="https://github.com/yourusername"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="linkedinLink"
-                  className="block text-xs font-medium text-gray-400"
-                >
-                  LinkedIn Profile URL
-                </label>
-                <input
-                  type="url"
-                  name="linkedinLink"
-                  id="linkedinLink"
-                  value={formData.linkedinLink}
-                  onChange={handleChange}
-                  className="mt-1 block w-full bg-gray-600 border-gray-500 rounded-md p-2 text-white"
-                  placeholder="https://linkedin.com/in/yourusername"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="websiteLink"
-                  className="block text-xs font-medium text-gray-400"
-                >
-                  Personal Website/Portfolio
-                </label>
-                <input
-                  type="url"
-                  name="websiteLink"
-                  id="websiteLink"
-                  value={formData.websiteLink}
-                  onChange={handleChange}
-                  className="mt-1 block w-full bg-gray-600 border-gray-500 rounded-md p-2 text-white"
-                  placeholder="https://yourdomain.com"
-                />
-              </div>
-            </div>
-          </fieldset>
+          </FormField>
+        </FormSection>
 
+        {/* Links Section */}
+        <FormSection title="Links">
+          <FormField label="GitHub URL">
+            <input
+              type="url"
+              name="githubLink"
+              value={formData.githubLink}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="https://github.com/yourusername"
+            />
+          </FormField>
+          <FormField label="LinkedIn URL">
+            <input
+              type="url"
+              name="linkedinLink"
+              value={formData.linkedinLink}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="https://linkedin.com/in/yourusername"
+            />
+          </FormField>
+          <FormField label="Website / Portfolio">
+            <input
+              type="url"
+              name="websiteLink"
+              value={formData.websiteLink}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="https://yourdomain.com"
+            />
+          </FormField>
+        </FormSection>
+
+        {/* Experience Section */}
+        <FormSection
+          title="Work Experience"
+          action={
+            !showExperienceForm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingExperienceId(null);
+                  setExperienceFormData({
+                    title: "",
+                    company: "",
+                    location: "",
+                    startDate: "",
+                    endDate: "",
+                    description: "",
+                  });
+                  setShowExperienceForm(true);
+                }}
+                className="btn-ghost"
+                style={{ fontSize: "0.78rem" }}
+              >
+                + Add
+              </button>
+            )
+          }
+        >
+          {showExperienceForm && (
+            <ExperienceForm
+              formData={experienceFormData}
+              onFormChange={(e) =>
+                setExperienceFormData((prev) => ({
+                  ...prev,
+                  [e.target.name]: e.target.value,
+                }))
+              }
+              onSave={handleSaveExperience}
+              onCancel={() => {
+                setShowExperienceForm(false);
+                setEditingExperienceId(null);
+              }}
+              isEditMode={!!editingExperienceId}
+            />
+          )}
+          <p
+            style={{
+              fontSize: "0.72rem",
+              color: "var(--text-dim)",
+              fontStyle: "italic",
+              marginBottom: "0.5rem",
+            }}
+          >
+            Drag to reorder
+          </p>
           <DragDropContext onDragEnd={onDragEndExperience}>
-            <div className="mt-10 pt-6 border-t border-gray-700">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-sky-300">
-                  Work Experience
-                </h2>
-                {!showExperienceForm && (
-                  <button
-                    type="button"
-                    onClick={handleAddNewExperience}
-                    className="bg-gray-600 text-sky-300 border border-sky-400/50 px-3 py-1 rounded-md text-sm font-semibold hover:bg-gray-500 hover:text-white transition-colors"
-                  >
-                    + Add New
-                  </button>
-                )}
-              </div>
-
-              {showExperienceForm && (
-                <ExperienceForm
-                  formData={experienceFormData}
-                  onFormChange={handleExperienceFormChange}
-                  onSave={handleSaveExperience}
-                  onCancel={handleCancelExperienceForm}
-                  isEditMode={!!editingExperienceId}
-                />
-              )}
-
-              <p className="text-sm text-gray-400 italic mb-2">
-                Drag and drop to reorder your work experiences.
-              </p>
-
-              <Droppable droppableId="experience">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="space-y-4 mt-4"
-                  >
-                    {experienceList.length > 0
-                      ? experienceList.map((exp, index) => (
-                          <Draggable
-                            key={exp._id}
-                            draggableId={exp._id}
-                            index={index}
+            <Droppable droppableId="experience">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                  }}
+                >
+                  {experienceList.length === 0 && !showExperienceForm && (
+                    <p
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "var(--text-dim)",
+                        fontStyle: "italic",
+                        textAlign: "center",
+                        padding: "1rem 0",
+                      }}
+                    >
+                      No experience added yet.
+                    </p>
+                  )}
+                  {experienceList.map((exp, index) => (
+                    <Draggable
+                      key={exp._id}
+                      draggableId={exp._id}
+                      index={index}
+                    >
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          style={{
+                            ...provided.draggableProps.style,
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid var(--border-subtle)",
+                            borderRadius: "var(--radius-md)",
+                            padding: "0.85rem 1rem",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: "0.75rem",
+                            cursor: "grab",
+                          }}
+                        >
+                          <div>
+                            <p
+                              style={{
+                                fontFamily: "var(--font-display)",
+                                fontWeight: 700,
+                                fontSize: "0.9rem",
+                                color: "var(--text-primary)",
+                                marginBottom: "0.15rem",
+                              }}
+                            >
+                              {exp.title}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: "0.82rem",
+                                color: "var(--text-secondary)",
+                                marginBottom: "0.1rem",
+                              }}
+                            >
+                              {exp.company}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: "0.72rem",
+                                color: "var(--text-dim)",
+                              }}
+                            >
+                              {formatMonthYear(exp.startDate)} —{" "}
+                              {formatMonthYear(exp.endDate)}
+                            </p>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "0.3rem",
+                              flexShrink: 0,
+                            }}
                           >
-                            {(provided) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className="bg-gray-900/50 p-4 rounded-lg flex justify-between items-start gap-4"
-                              >
-                                <div>
-                                  <h3 className="font-bold text-lg text-white">
-                                    {exp.title}
-                                  </h3>
-                                  <p className="text-gray-300">{exp.company}</p>
-                                  <p className="text-sm text-gray-400">
-                                    {formatMonthYear(exp.startDate)} -{" "}
-                                    {formatMonthYear(exp.endDate)}
-                                  </p>
-
-                                  {exp.description && (
-                                    <p className="text-sm text-gray-300 mt-2 whitespace-pre-wrap">
-                                      {exp.description}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex space-x-3 mt-1 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditExperience(exp)}
-                                    className="text-sky-400 hover:text-sky-300 text-sm font-medium"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleDeleteExperience(exp._id)
-                                    }
-                                    className="text-red-500 hover:text-red-400 text-sm font-medium"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        ))
-                      : !showExperienceForm && (
-                          <p className="text-gray-500 italic text-center py-4">
-                            No work experience added yet.
-                          </p>
-                        )}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingExperienceId(exp._id);
+                                setExperienceFormData({
+                                  ...exp,
+                                  startDate: exp.startDate || "",
+                                  endDate: exp.endDate || "",
+                                });
+                                setShowExperienceForm(true);
+                              }}
+                              className="btn-ghost"
+                              style={{
+                                fontSize: "0.72rem",
+                                padding: "0.2rem 0.5rem",
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteExperience(exp._id)}
+                              className="btn-danger"
+                              style={{
+                                fontSize: "0.72rem",
+                                padding: "0.2rem 0.5rem",
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
           </DragDropContext>
+        </FormSection>
 
+        {/* Education Section */}
+        <FormSection
+          title="Education"
+          action={
+            !showEducationForm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingEducationId(null);
+                  setEducationFormData({
+                    institution: "",
+                    degree: "",
+                    fieldOfStudy: "",
+                    startDate: "",
+                    endDate: "",
+                    grade: "",
+                    description: "",
+                  });
+                  setShowEducationForm(true);
+                }}
+                className="btn-ghost"
+                style={{ fontSize: "0.78rem" }}
+              >
+                + Add
+              </button>
+            )
+          }
+        >
+          {showEducationForm && (
+            <EducationForm
+              formData={educationFormData}
+              onFormChange={(e) =>
+                setEducationFormData((prev) => ({
+                  ...prev,
+                  [e.target.name]: e.target.value,
+                }))
+              }
+              onSave={handleSaveEducation}
+              onCancel={() => {
+                setShowEducationForm(false);
+                setEditingEducationId(null);
+              }}
+              isEditMode={!!editingEducationId}
+            />
+          )}
+          <p
+            style={{
+              fontSize: "0.72rem",
+              color: "var(--text-dim)",
+              fontStyle: "italic",
+              marginBottom: "0.5rem",
+            }}
+          >
+            Drag to reorder
+          </p>
           <DragDropContext onDragEnd={onDragEndEducation}>
-            <div className="mt-10 pt-6 border-t border-gray-700">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-sky-300">Education</h2>
-                {!showEducationForm && (
-                  <button
-                    type="button"
-                    onClick={handleAddNewEducation}
-                    className="bg-gray-600 text-sky-300 border border-sky-400/50 px-3 py-1 rounded-md text-sm font-semibold hover:bg-gray-500 hover:text-white transition-colors"
-                  >
-                    + Add New
-                  </button>
-                )}
-              </div>
-
-              {showEducationForm && (
-                <EducationForm
-                  formData={educationFormData}
-                  onFormChange={handleEducationFormChange}
-                  onSave={handleSaveEducation}
-                  onCancel={handleCancelEducationForm}
-                  isEditMode={!!editingEducationId}
-                />
-              )}
-
-              <p className="text-sm text-gray-400 italic mb-2">
-                Drag and drop to reorder your education entries.
-              </p>
-
-              <Droppable droppableId="education">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="space-y-4 mt-4"
-                  >
-                    {educationList.length > 0
-                      ? educationList.map((edu, index) => (
-                          <Draggable
-                            key={edu._id}
-                            draggableId={edu._id}
-                            index={index}
-                          >
-                            {(provided) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className="bg-gray-900/50 p-4 rounded-lg flex justify-between items-start gap-4"
+            <Droppable droppableId="education">
+              {(provided) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                  }}
+                >
+                  {educationList.length === 0 && !showEducationForm && (
+                    <p
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "var(--text-dim)",
+                        fontStyle: "italic",
+                        textAlign: "center",
+                        padding: "1rem 0",
+                      }}
+                    >
+                      No education added yet.
+                    </p>
+                  )}
+                  {educationList.map((edu, index) => (
+                    <Draggable
+                      key={edu._id}
+                      draggableId={edu._id}
+                      index={index}
+                    >
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          style={{
+                            ...provided.draggableProps.style,
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid var(--border-subtle)",
+                            borderRadius: "var(--radius-md)",
+                            padding: "0.85rem 1rem",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: "0.75rem",
+                            cursor: "grab",
+                          }}
+                        >
+                          <div>
+                            <p
+                              style={{
+                                fontFamily: "var(--font-display)",
+                                fontWeight: 700,
+                                fontSize: "0.9rem",
+                                color: "var(--text-primary)",
+                                marginBottom: "0.15rem",
+                              }}
+                            >
+                              {edu.institution}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: "0.82rem",
+                                color: "var(--text-secondary)",
+                                marginBottom: "0.1rem",
+                              }}
+                            >
+                              {edu.degree}
+                              {edu.fieldOfStudy && `, ${edu.fieldOfStudy}`}
+                            </p>
+                            {edu.grade && (
+                              <p
+                                style={{
+                                  fontSize: "0.72rem",
+                                  color: "var(--accent-green)",
+                                  fontWeight: 600,
+                                  marginBottom: "0.1rem",
+                                }}
                               >
-                                <div>
-                                  <h3 className="font-bold text-lg text-white">
-                                    {edu.institution}
-                                  </h3>
-                                  <p className="text-gray-300">
-                                    {edu.degree}
-                                    {edu.fieldOfStudy &&
-                                      `, ${edu.fieldOfStudy}`}
-                                  </p>
-                                  {edu.grade && (
-                                    <p className="text-sm text-gray-300 font-semibold">{`Grade: ${edu.grade}`}</p>
-                                  )}
-                                  <p className="text-sm text-gray-400">
-                                    {formatMonthYear(edu.startDate)} -{" "}
-                                    {formatMonthYear(edu.endDate)}
-                                  </p>
-                                  {edu.description && (
-                                    <p className="text-sm text-gray-300 mt-2 whitespace-pre-wrap">
-                                      {edu.description}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex space-x-3 mt-1 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditEducation(edu)}
-                                    className="text-sky-400 hover:text-sky-300 text-sm font-medium"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleDeleteEducation(edu._id)
-                                    }
-                                    className="text-red-500 hover:text-red-400 text-sm font-medium"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
+                                Grade: {edu.grade}
+                              </p>
                             )}
-                          </Draggable>
-                        ))
-                      : !showEducationForm && (
-                          <p className="text-gray-500 italic text-center py-4">
-                            No education history added yet.
-                          </p>
-                        )}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </div>
+                            <p
+                              style={{
+                                fontSize: "0.72rem",
+                                color: "var(--text-dim)",
+                              }}
+                            >
+                              {formatMonthYear(edu.startDate)} —{" "}
+                              {formatMonthYear(edu.endDate)}
+                            </p>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "0.3rem",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingEducationId(edu._id);
+                                setEducationFormData({
+                                  ...edu,
+                                  startDate: edu.startDate || "",
+                                  endDate: edu.endDate || "",
+                                  grade: edu.grade || "",
+                                });
+                                setShowEducationForm(true);
+                              }}
+                              className="btn-ghost"
+                              style={{
+                                fontSize: "0.72rem",
+                                padding: "0.2rem 0.5rem",
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEducation(edu._id)}
+                              className="btn-danger"
+                              style={{
+                                fontSize: "0.72rem",
+                                padding: "0.2rem 0.5rem",
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
           </DragDropContext>
+        </FormSection>
 
-          <div className="flex justify-end space-x-4 pt-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50"
-            >
-              {loading ? "Saving..." : "Save Profile Changes"}
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* Submit */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            paddingTop: "0.5rem",
+          }}
+        >
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary"
+            style={{ padding: "0.65rem 2rem" }}
+          >
+            {loading ? "Saving..." : "Save Profile Changes"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
+
+const FormSection = ({ title, children, action }) => (
+  <div
+    style={{
+      background: "var(--bg-card)",
+      border: "1px solid var(--border-card)",
+      borderRadius: "var(--radius-lg)",
+      padding: "1.5rem",
+      marginBottom: "1rem",
+      boxShadow: "var(--shadow-card)",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "1.25rem",
+      }}
+    >
+      <h2
+        style={{
+          fontFamily: "var(--font-display)",
+          fontWeight: 700,
+          fontSize: "0.95rem",
+          color: "var(--text-primary)",
+          margin: 0,
+        }}
+      >
+        {title}
+      </h2>
+      {action}
+    </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+      {children}
+    </div>
+  </div>
+);
+
+const FormField = ({ label, children }) => (
+  <div>
+    <label className="input-label">{label}</label>
+    {children}
+  </div>
+);
 
 export default EditProfilePage;

@@ -1,189 +1,478 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import NotificationList from './NotificationList';
+import React, { useState, useEffect, useRef } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import NotificationList from "./NotificationList";
 
 const Navbar = () => {
-  const { isAuthenticated, user, logout, loading: authLoading, unreadNotificationCount } = useAuth();
+  const {
+    isAuthenticated,
+    user,
+    logout,
+    loading: authLoading,
+    unreadNotificationCount,
+  } = useAuth();
   const navigate = useNavigate();
-  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] =
+    useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const notificationDropdownRef = useRef(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
+    setMenuOpen(false);
   };
-
-  const BellIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-    </svg>
-  );
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notificationDropdownRef.current && !notificationDropdownRef.current.contains(event.target)) {
-        const bellButton = document.getElementById('notifications-menu-button');
-        if (bellButton && !bellButton.contains(event.target)) {
-            setShowNotificationsDropdown(false);
-        }
-      }
-    };
-    if (showNotificationsDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    } else {
-      document.removeEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showNotificationsDropdown]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery('');
+      setSearchQuery("");
+      setMenuOpen(false);
     }
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationDropdownRef.current &&
+        !notificationDropdownRef.current.contains(event.target)
+      ) {
+        const bellButton = document.getElementById("notifications-menu-button");
+        if (bellButton && !bellButton.contains(event.target)) {
+          setShowNotificationsDropdown(false);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
   if (authLoading && isAuthenticated === null) {
     return (
-        <nav className="bg-gray-800 p-4 shadow-lg sticky top-0 z-50">
-            <div className="container mx-auto flex justify-between items-center">
-                <Link to="/" className="text-2xl font-bold text-cyan-400">DevLink</Link>
-                <div className="text-gray-300 text-sm">Loading user...</div>
-            </div>
-        </nav>
+      <nav style={navWrapperStyle(false)}>
+        <div style={navInnerStyle}>
+          <Logo />
+          <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+            Loading...
+          </span>
+        </div>
+      </nav>
     );
   }
 
   return (
-    <nav className="bg-gray-800 p-4 shadow-lg sticky top-0 z-50">
-      <div className="container mx-auto flex flex-wrap justify-between items-center">
-        <Link to="/" className="text-2xl font-bold text-cyan-400 hover:text-cyan-300 mr-4 md:mr-6">
-          DevLink
-        </Link>
+    <>
+      {/* ── COMPACT PILL NAVBAR (default) ── */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          display: "flex",
+          justifyContent: "center",
+          padding: "1rem",
+          pointerEvents: "none",
+        }}
+      >
+        <nav
+          style={{
+            pointerEvents: "all",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1.5rem",
+            background: scrolled
+              ? "rgba(15, 15, 18, 0.92)"
+              : "rgba(22, 22, 26, 0.75)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "999px",
+            padding: "0.45rem 0.6rem 0.45rem 1.25rem",
+            transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: scrolled
+              ? "0 8px 32px rgba(0, 0, 0, 0.4)"
+              : "0 2px 16px rgba(0, 0, 0, 0.2)",
+            width: "100%",
+            maxWidth: "780px",
+          }}
+        >
+          <Logo />
 
-        <div className="flex-grow order-3 w-full md:w-auto md:order-2 mt-3 md:mt-0 md:mx-4 max-w-xl">
-          <form onSubmit={handleSearchSubmit} className="flex">
+          {/* Search – hidden on small screens */}
+          <form
+            onSubmit={handleSearchSubmit}
+            style={{
+              flex: 1,
+              maxWidth: "280px",
+              display: "flex",
+              gap: "0",
+            }}
+            className="hidden-mobile"
+          >
             <input
               type="search"
-              name="search"
-              id="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full px-3 py-1.5 border border-gray-700 rounded-l-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
               placeholder="Search DevLink..."
-              aria-label="Search DevLink"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "999px",
+                color: "var(--text-primary)",
+                fontFamily: "var(--font-body)",
+                fontSize: "0.82rem",
+                padding: "0.4rem 1rem",
+                outline: "none",
+                width: "100%",
+                transition: "border-color 200ms, background 200ms",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "rgba(185, 244, 61, 0.3)";
+                e.target.style.background = "rgba(255,255,255,0.08)";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "var(--border-subtle)";
+                e.target.style.background = "rgba(255,255,255,0.05)";
+              }}
             />
-            <button
-              type="submit"
-              className="inline-flex items-center px-4 py-1.5 border border-l-0 border-sky-500 bg-sky-500 text-white rounded-r-md hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-gray-800 text-sm"
-            >
-              Search
-            </button>
           </form>
-        </div>
 
-        <div className="flex items-center space-x-2 md:space-x-3 order-2 md:order-3">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `px-3 py-2 rounded-md text-sm font-medium ${
-                isActive ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-              }`
-            }
-          >
-            Home
-          </NavLink>
+          {/* Right side controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            {/* Home link */}
+            <NavLink
+              to="/"
+              end
+              style={({ isActive }) => ({
+                ...navLinkStyle,
+                color: isActive ? "var(--text-primary)" : "var(--text-muted)",
+                background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
+              })}
+            >
+              Home
+            </NavLink>
 
-          {isAuthenticated && user ? (
-            <>
-              <div className="relative" ref={notificationDropdownRef}>
-                <button
-                  onClick={() => setShowNotificationsDropdown(prev => !prev)}
-                  className="text-gray-300 hover:text-white p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
-                  aria-label="View notifications"
-                  id="notifications-menu-button"
-                  aria-expanded={showNotificationsDropdown}
-                  aria-haspopup="true"
+            {isAuthenticated && user ? (
+              <>
+                {/* Notifications */}
+                <div
+                  style={{ position: "relative" }}
+                  ref={notificationDropdownRef}
                 >
-                  <BellIcon />
-                  {unreadNotificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center pointer-events-none">
-                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                    </span>
-                  )}
-                </button>
-                {showNotificationsDropdown && (
-                  <div
-                    className="origin-top-right absolute right-0 mt-2 w-80 md:w-96 rounded-md shadow-lg bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-20"
-                    role="menu"
-                    aria-orientation="vertical"
-                    aria-labelledby="notifications-menu-button"
+                  <button
+                    id="notifications-menu-button"
+                    onClick={() => setShowNotificationsDropdown((p) => !p)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--text-muted)",
+                      cursor: "pointer",
+                      padding: "0.4rem",
+                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "color 200ms, background 200ms",
+                      position: "relative",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "var(--text-primary)";
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.06)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "var(--text-muted)";
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                    aria-label="Notifications"
+                    aria-expanded={showNotificationsDropdown}
                   >
-                    <div className="px-4 py-3 border-b border-gray-600">
-                        <p className="text-sm font-medium text-white">Notifications</p>
-                    </div>
-                    <NotificationList closeDropdown={() => setShowNotificationsDropdown(false)} />
-                    <div className="px-4 py-2 border-t border-gray-600 text-center block" role="none">
-                        <Link 
-                            to="/notifications" 
-                            onClick={() => setShowNotificationsDropdown(false)} 
-                            className="text-xs text-sky-400 hover:underline"
-                            role="menuitem"
-                        >
-                            View all notifications
-                        </Link>
-                    </div>
-                  </div>
-                )}
-              </div>
+                    <BellIcon />
+                    {unreadNotificationCount > 0 && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "2px",
+                          right: "2px",
+                          background: "var(--accent-green)",
+                          color: "#0a0a0d",
+                          fontSize: "0.6rem",
+                          fontWeight: 700,
+                          borderRadius: "50%",
+                          minWidth: "14px",
+                          height: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: "0 2px",
+                          animation: "pulse-green 2s infinite",
+                        }}
+                      >
+                        {unreadNotificationCount > 9
+                          ? "9+"
+                          : unreadNotificationCount}
+                      </span>
+                    )}
+                  </button>
 
-              <NavLink
-                to={user.username ? `/profile/${user.username.toLowerCase()}` : '/profile'}
-                className={({ isActive }) =>
-                  `px-3 py-2 rounded-md text-sm font-medium ${
-                    isActive ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`
-                }
-              >
-                {user.displayName || user.username || 'Profile'}
-              </NavLink>
-              <button
-                onClick={handleLogout}
-                className="text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  `px-3 py-2 rounded-md text-sm font-medium ${
-                    isActive ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`
-                }
-              >
-                Login
-              </NavLink>
-              <NavLink
-                to="/register"
-                className="bg-sky-500 hover:bg-sky-600 text-white px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Register
-              </NavLink>
-            </>
-          )}
-        </div>
+                  {showNotificationsDropdown && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "calc(100% + 0.75rem)",
+                        width: "360px",
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-card)",
+                        borderRadius: "var(--radius-lg)",
+                        boxShadow: "var(--shadow-modal)",
+                        overflow: "hidden",
+                        animation: "modalIn 0.25s var(--ease-expo) both",
+                        zIndex: 200,
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "1rem 1.25rem",
+                          borderBottom: "1px solid var(--border-subtle)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: "var(--font-display)",
+                            fontWeight: 600,
+                            fontSize: "0.9rem",
+                            color: "var(--text-primary)",
+                          }}
+                        >
+                          Notifications
+                        </span>
+                        {unreadNotificationCount > 0 && (
+                          <span
+                            style={{
+                              background: "rgba(185, 244, 61, 0.12)",
+                              color: "var(--accent-green)",
+                              fontSize: "0.7rem",
+                              fontWeight: 600,
+                              padding: "0.15rem 0.5rem",
+                              borderRadius: "999px",
+                              border: "1px solid rgba(185, 244, 61, 0.2)",
+                            }}
+                          >
+                            {unreadNotificationCount} new
+                          </span>
+                        )}
+                      </div>
+                      <NotificationList
+                        closeDropdown={() =>
+                          setShowNotificationsDropdown(false)
+                        }
+                      />
+                      <div
+                        style={{
+                          padding: "0.75rem",
+                          borderTop: "1px solid var(--border-subtle)",
+                          textAlign: "center",
+                        }}
+                      >
+                        <Link
+                          to="/notifications"
+                          onClick={() => setShowNotificationsDropdown(false)}
+                          style={{
+                            fontFamily: "var(--font-body)",
+                            fontSize: "0.78rem",
+                            color: "var(--text-muted)",
+                            textDecoration: "none",
+                            transition: "color 200ms",
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.target.style.color = "var(--accent-green)")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.target.style.color = "var(--text-muted)")
+                          }
+                        >
+                          View all notifications →
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Profile link */}
+                <NavLink
+                  to={
+                    user.username
+                      ? `/profile/${user.username.toLowerCase()}`
+                      : "/profile"
+                  }
+                  style={({ isActive }) => ({
+                    ...navLinkStyle,
+                    color: isActive
+                      ? "var(--text-primary)"
+                      : "var(--text-muted)",
+                    background: isActive
+                      ? "rgba(255,255,255,0.06)"
+                      : "transparent",
+                  })}
+                >
+                  {user.displayName || user.username}
+                </NavLink>
+
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    ...navLinkStyle,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--text-muted)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "#f87171";
+                    e.currentTarget.style.background = "rgba(239,68,68,0.08)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "var(--text-muted)";
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <NavLink
+                  to="/login"
+                  style={{ ...navLinkStyle, color: "var(--text-muted)" }}
+                >
+                  Login
+                </NavLink>
+                <Link
+                  to="/register"
+                  className="btn-primary"
+                  style={{ padding: "0.45rem 1.1rem", fontSize: "0.82rem" }}
+                >
+                  Join
+                </Link>
+              </>
+            )}
+          </div>
+        </nav>
       </div>
-    </nav>
+
+      {/* Spacer for fixed navbar */}
+      <div style={{ height: "80px" }} />
+
+      <style>{`
+        @media (max-width: 640px) {
+          .hidden-mobile { display: none !important; }
+        }
+      `}</style>
+    </>
   );
 };
+
+const Logo = () => (
+  <Link
+    to="/"
+    style={{
+      fontFamily: "var(--font-display)",
+      fontWeight: 800,
+      fontSize: "1.1rem",
+      color: "var(--text-primary)",
+      textDecoration: "none",
+      letterSpacing: "-0.03em",
+      display: "flex",
+      alignItems: "center",
+      gap: "0.4rem",
+      flexShrink: 0,
+    }}
+  >
+    <span
+      style={{
+        display: "inline-block",
+        width: "20px",
+        height: "20px",
+        background: "var(--accent-green)",
+        borderRadius: "5px",
+        flexShrink: 0,
+      }}
+    />
+    DevLink
+  </Link>
+);
+
+const navWrapperStyle = (scrolled) => ({
+  position: "sticky",
+  top: 0,
+  zIndex: 100,
+  background: "rgba(15, 15, 18, 0.9)",
+  backdropFilter: "blur(20px)",
+  borderBottom: "1px solid var(--border-subtle)",
+  padding: "1rem 1.5rem",
+});
+
+const navInnerStyle = {
+  maxWidth: "1200px",
+  margin: "0 auto",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const navLinkStyle = {
+  fontFamily: "var(--font-body)",
+  fontWeight: 500,
+  fontSize: "0.82rem",
+  color: "var(--text-muted)",
+  textDecoration: "none",
+  padding: "0.4rem 0.75rem",
+  borderRadius: "999px",
+  transition: "color 200ms, background 200ms",
+  whiteSpace: "nowrap",
+};
+
+const BellIcon = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
 
 export default Navbar;

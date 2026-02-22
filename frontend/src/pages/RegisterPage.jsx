@@ -23,23 +23,15 @@ const RegisterPage = () => {
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const { username, email, displayName, password, confirmPassword } = formData;
-
   useEffect(() => {
     if (isAuthenticated) {
-      setSuccessMessage("Registration successful! Redirecting...");
-      const timer = setTimeout(() => {
-        navigate("/");
-      }, 1500);
+      setSuccessMessage("Account created! Redirecting...");
+      const timer = setTimeout(() => navigate("/"), 1500);
       return () => clearTimeout(timer);
     }
   }, [isAuthenticated, navigate]);
 
-  useEffect(() => {
-    return () => {
-      clearErrors();
-    };
-  }, [clearErrors]);
+  useEffect(() => () => clearErrors(), [clearErrors]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -53,195 +45,337 @@ const RegisterPage = () => {
     setFormError("");
     setSuccessMessage("");
     if (authError) clearErrors();
-
-    if (!username || !email || !password || !confirmPassword) {
+    if (
+      !formData.username ||
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword
+    ) {
       setFormError("Please fill in all required fields.");
       return;
     }
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setFormError("Passwords do not match.");
       return;
     }
-
     try {
-      const userData = {
-        username,
-        email,
-        password,
-        displayName: displayName || username,
-      };
-      await register(userData);
+      await register({
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        displayName: formData.displayName || formData.username,
+      });
     } catch (err) {
-      console.error("Registration component error catcher:", err);
-    } finally {
+      console.error("Register error:", err);
     }
   };
 
   return (
-    <div className="container mx-auto p-4 flex justify-center items-center min-h-[calc(100vh-120px)]">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
-        <h1 className="text-3xl font-bold text-center text-sky-400 mb-8">
-          Create Account
-        </h1>
+    <div
+      style={{
+        minHeight: "80vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1.25rem",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "440px" }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              width: "44px",
+              height: "44px",
+              background: "var(--accent-green)",
+              borderRadius: "12px",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "1.25rem",
+            }}
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#0a0a0d"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="19" y1="8" x2="19" y2="14" />
+              <line x1="22" y1="11" x2="16" y2="11" />
+            </svg>
+          </div>
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 800,
+              fontSize: "2rem",
+              color: "var(--text-primary)",
+              letterSpacing: "-0.03em",
+              marginBottom: "0.5rem",
+            }}
+          >
+            Join DevLink
+          </h1>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
+            Build your developer presence
+          </p>
+        </div>
 
-        {formError && (
-          <p className="mb-4 text-center text-red-400 bg-red-900 border border-red-700 p-3 rounded">
-            {formError}
-          </p>
-        )}
-        {!formError && authError && (
-          <p className="mb-4 text-center text-red-400 bg-red-900 border border-red-700 p-3 rounded">
-            {authError}
-          </p>
-        )}
-        {successMessage && !authError && (
-          <p className="mb-4 text-center text-green-400 bg-green-900 border border-green-700 p-3 rounded">
-            {successMessage}
-          </p>
-        )}
+        {/* Card */}
+        <div
+          style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border-card)",
+            borderRadius: "var(--radius-xl)",
+            padding: "2rem",
+            boxShadow: "var(--shadow-card)",
+          }}
+        >
+          {/* Messages */}
+          {(formError || authError) && (
+            <div
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.2)",
+                borderRadius: "var(--radius-md)",
+                padding: "0.75rem 1rem",
+                color: "#f87171",
+                fontSize: "0.85rem",
+                marginBottom: "1.25rem",
+                textAlign: "center",
+              }}
+            >
+              {formError || authError}
+            </div>
+          )}
+          {successMessage && (
+            <div
+              style={{
+                background: "rgba(185,244,61,0.08)",
+                border: "1px solid rgba(185,244,61,0.2)",
+                borderRadius: "var(--radius-md)",
+                padding: "0.75rem 1rem",
+                color: "var(--accent-green)",
+                fontSize: "0.85rem",
+                marginBottom: "1.25rem",
+                textAlign: "center",
+              }}
+            >
+              {successMessage}
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label
-              htmlFor="username"
-              className="block text-sm font-medium text-gray-300"
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "0.75rem",
+              }}
             >
-              Username <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              value={username}
-              onChange={handleChange}
-              required
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
-              placeholder="your_unique_username"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={email}
-              onChange={handleChange}
-              required
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="displayName"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Display Name (Optional)
-            </label>
-            <input
-              id="displayName"
-              name="displayName"
-              type="text"
-              value={displayName}
-              onChange={handleChange}
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
-              placeholder="Your Display Name"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={password}
-              onChange={handleChange}
-              required
-              minLength="6"
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
-              placeholder="••••••••"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-300"
-            >
-              Confirm Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={handleChange}
-              required
-              minLength="6"
-              className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm bg-gray-700 text-white"
-              placeholder="••••••••"
-            />
-          </div>
-          <div>
+              <div>
+                <label className="input-label">Username *</label>
+                <input
+                  name="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={handleChange}
+                  required
+                  className="input-field"
+                  placeholder="devhero"
+                  autoComplete="username"
+                  style={{ fontSize: "0.875rem" }}
+                />
+              </div>
+              <div>
+                <label className="input-label">Display Name</label>
+                <input
+                  name="displayName"
+                  type="text"
+                  value={formData.displayName}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="Dev Hero"
+                  style={{ fontSize: "0.875rem" }}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="input-label">Email *</label>
+              <input
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="input-field"
+                placeholder="you@example.com"
+                autoComplete="email"
+                style={{ fontSize: "0.875rem" }}
+              />
+            </div>
+            <div>
+              <label className="input-label">Password *</label>
+              <input
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                minLength="6"
+                className="input-field"
+                placeholder="••••••••"
+                style={{ fontSize: "0.875rem" }}
+              />
+            </div>
+            <div>
+              <label className="input-label">Confirm Password *</label>
+              <input
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                minLength="6"
+                className="input-field"
+                placeholder="••••••••"
+                style={{ fontSize: "0.875rem" }}
+              />
+            </div>
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 focus:ring-offset-gray-800 disabled:opacity-50"
+              className="btn-primary"
+              style={{
+                marginTop: "0.25rem",
+                padding: "0.7rem",
+                fontSize: "0.9rem",
+                width: "100%",
+                justifyContent: "center",
+              }}
             >
-              {authLoading ? "Registering..." : "Register"}
+              {authLoading ? "Creating account..." : "Create Account"}
             </button>
-          </div>
-        </form>
-        <p className="mt-8 text-center text-sm text-gray-400">
-          Already have an account?{" "}
-          <Link
-            to="/login"
-            className="font-medium text-sky-400 hover:text-sky-300"
+          </form>
+
+          {/* Divider */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              margin: "1.5rem 0",
+            }}
           >
-            Login
-          </Link>
-        </p>
-
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-600" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-800 text-gray-400">
-                Or sign up with
-              </span>
-            </div>
+            <hr
+              style={{
+                flex: 1,
+                border: "none",
+                borderTop: "1px solid var(--border-subtle)",
+              }}
+            />
+            <span
+              style={{
+                fontSize: "0.72rem",
+                color: "var(--text-dim)",
+                letterSpacing: "0.06em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              OR SIGN UP WITH
+            </span>
+            <hr
+              style={{
+                flex: 1,
+                border: "none",
+                borderTop: "1px solid var(--border-subtle)",
+              }}
+            />
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-3">
-            <a
-              href={`${import.meta.env.VITE_API_BASE_URL}/auth/github`}
-              className="w-full inline-flex justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-sm font-medium text-white hover:bg-gray-600"
-            >
-              <FaGithub className="w-5 h-5 mr-3" />
-              Sign up with GitHub
-            </a>
-
-            <a
-              href={`${import.meta.env.VITE_API_BASE_URL}/auth/google`}
-              className="w-full inline-flex justify-center py-2 px-4 border border-gray-600 rounded-md shadow-sm bg-gray-700 text-sm font-medium text-white hover:bg-gray-600"
-            >
-              <FaGoogle className="w-5 h-5 mr-3" />
-              Sign up with Google
-            </a>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+          >
+            {[
+              {
+                href: `${import.meta.env.VITE_API_BASE_URL}/auth/github`,
+                icon: <FaGithub size={16} />,
+                label: "Continue with GitHub",
+              },
+              {
+                href: `${import.meta.env.VITE_API_BASE_URL}/auth/google`,
+                icon: <FaGoogle size={16} />,
+                label: "Continue with Google",
+              },
+            ].map((btn) => (
+              <a
+                key={btn.label}
+                href={btn.href}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.65rem",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid var(--border-card)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "0.65rem",
+                  color: "var(--text-secondary)",
+                  fontSize: "0.875rem",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 500,
+                  textDecoration: "none",
+                  transition:
+                    "background 200ms, border-color 200ms, color 200ms",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                  e.currentTarget.style.borderColor = "var(--border-hover)";
+                  e.currentTarget.style.color = "var(--text-primary)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                  e.currentTarget.style.borderColor = "var(--border-card)";
+                  e.currentTarget.style.color = "var(--text-secondary)";
+                }}
+              >
+                {btn.icon} {btn.label}
+              </a>
+            ))}
           </div>
         </div>
+
+        <p
+          style={{
+            textAlign: "center",
+            marginTop: "1.5rem",
+            fontSize: "0.85rem",
+            color: "var(--text-muted)",
+          }}
+        >
+          Already a member?{" "}
+          <Link
+            to="/login"
+            style={{
+              color: "var(--accent-green)",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+            onMouseEnter={(e) => (e.target.style.textDecoration = "underline")}
+            onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
+          >
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   );

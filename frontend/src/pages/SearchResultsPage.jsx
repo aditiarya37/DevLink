@@ -1,48 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import axios from 'axios';
-import PostItem from '../components/PostItem'; 
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams, Link } from "react-router-dom";
+import axios from "axios";
+import PostItem from "../components/PostItem";
 
 const SearchResultsPage = () => {
   const [searchParams] = useSearchParams();
-  const query = searchParams.get('q');
+  const query = searchParams.get("q");
 
   const [userResults, setUserResults] = useState([]);
   const [postResults, setPostResults] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   const fetchResults = useCallback(async () => {
-    if (!query || query.trim() === '') {
-      setUserResults([]);
-      setPostResults([]);
-      setError('Please enter a search term.');
+    if (!query?.trim()) {
+      setError("Please enter a search term.");
       return;
     }
-
     setLoadingUsers(true);
     setLoadingPosts(true);
-    setError('');
+    setError("");
 
     try {
-      const userRes = await axios.get(`${API_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=5`);
+      const userRes = await axios.get(
+        `${API_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=6`,
+      );
       setUserResults(userRes.data.users || []);
-    } catch (err) {
-      console.error("Error fetching user search results:", err);
-      setError(prev => prev + '\nFailed to fetch user results.');
+    } catch {
+      setError("Failed to fetch user results.");
     } finally {
       setLoadingUsers(false);
     }
 
     try {
-      const postRes = await axios.get(`${API_BASE_URL}/posts/search?q=${encodeURIComponent(query)}&limit=10`);
+      const postRes = await axios.get(
+        `${API_BASE_URL}/posts/search?q=${encodeURIComponent(query)}&limit=10`,
+      );
       setPostResults(postRes.data.posts || []);
-    } catch (err) {
-      console.error("Error fetching post search results:", err);
-      setError(prev => prev + '\nFailed to fetch post results.');
+    } catch {
     } finally {
       setLoadingPosts(false);
     }
@@ -50,64 +48,216 @@ const SearchResultsPage = () => {
 
   useEffect(() => {
     fetchResults();
-  }, [fetchResults]); 
-
-  const isLoading = loadingUsers || loadingPosts;
+  }, [fetchResults]);
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-3xl font-bold text-sky-400 mb-6">
-        Search Results for: <span className="text-white">"{query}"</span>
-      </h1>
+    <div
+      style={{
+        maxWidth: "720px",
+        margin: "0 auto",
+        padding: "2rem 1.25rem 4rem",
+      }}
+    >
+      {/* Header */}
+      <div style={{ marginBottom: "2rem" }}>
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: "0.72rem",
+            color: "var(--text-dim)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            marginBottom: "0.5rem",
+          }}
+        >
+          Search Results
+        </p>
+        <h1
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 800,
+            fontSize: "1.75rem",
+            color: "var(--text-primary)",
+            letterSpacing: "-0.03em",
+          }}
+        >
+          "{query}"
+        </h1>
+      </div>
 
-      {isLoading && <p className="text-sky-300 text-center">Searching...</p>}
-      {error && <p className="text-red-500 bg-red-900 p-3 rounded text-center">{error}</p>}
+      {error && (
+        <div
+          style={{
+            background: "rgba(239,68,68,0.08)",
+            border: "1px solid rgba(239,68,68,0.2)",
+            borderRadius: "var(--radius-md)",
+            padding: "0.75rem 1rem",
+            color: "#f87171",
+            fontSize: "0.85rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          {error}
+        </div>
+      )}
 
-      {!loadingUsers && (
-        <section className="mb-10">
-          <h2 className="text-2xl font-semibold text-sky-300 mb-4">Users</h2>
-          {userResults.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {userResults.map(user => (
-                <div key={user._id} className="bg-gray-800 p-4 rounded-lg shadow-md hover:shadow-sky-700/50 transition-shadow">
-                  <Link to={`/profile/${user.username.toLowerCase()}`} className="flex flex-col items-center text-center">
-                    <img
-                      src={user.profilePicture || `https://ui-avatars.com/api/?name=${user.username.charAt(0).toUpperCase()}&background=random&color=fff&size=100`}
-                      alt={user.displayName || user.username}
-                      className="w-20 h-20 rounded-full mb-3 object-cover border-2 border-gray-700"
-                    />
-                    <h3 className="font-semibold text-sky-400 text-lg">{user.displayName || user.username}</h3>
-                    <p className="text-xs text-gray-500">@{user.username.toLowerCase()}</p>
-                    {user.bio && <p className="text-sm text-gray-400 mt-1 line-clamp-2">{user.bio}</p>}
-                  </Link>
+      {/* Users */}
+      <section style={{ marginBottom: "2.5rem" }}>
+        <SectionHeader label="Developers" count={userResults.length} />
+        {loadingUsers && <LoadingDots />}
+        {!loadingUsers && userResults.length === 0 && (
+          <p
+            style={{
+              fontSize: "0.85rem",
+              color: "var(--text-dim)",
+              fontStyle: "italic",
+            }}
+          >
+            No users found.
+          </p>
+        )}
+        {!loadingUsers && userResults.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: "0.75rem",
+            }}
+          >
+            {userResults.map((user) => (
+              <Link
+                key={user._id}
+                to={`/profile/${user.username.toLowerCase()}`}
+                style={{ textDecoration: "none" }}
+              >
+                <div
+                  className="card"
+                  style={{ padding: "1.25rem", textAlign: "center" }}
+                >
+                  <img
+                    src={
+                      user.profilePicture ||
+                      `https://ui-avatars.com/api/?name=${user.username.charAt(0).toUpperCase()}&background=1c1c21&color=b9f43d&size=80`
+                    }
+                    alt={user.displayName || user.username}
+                    className="avatar"
+                    style={{
+                      width: "52px",
+                      height: "52px",
+                      margin: "0 auto 0.75rem",
+                    }}
+                  />
+                  <p
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontWeight: 700,
+                      fontSize: "0.9rem",
+                      color: "var(--text-primary)",
+                      marginBottom: "0.2rem",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {user.displayName || user.username}
+                  </p>
+                  <p style={{ fontSize: "0.72rem", color: "var(--text-dim)" }}>
+                    @{user.username.toLowerCase()}
+                  </p>
+                  {user.bio && (
+                    <p
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "var(--text-muted)",
+                        marginTop: "0.5rem",
+                        lineHeight: 1.45,
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {user.bio}
+                    </p>
+                  )}
                 </div>
-              ))}
-            </div>
-          ) : (
-            !error && !loadingUsers && <p className="text-gray-500 italic">No users found matching your query.</p>
-          )}
-        </section>
-      )}
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
-      {!loadingPosts && (
-        <section>
-          <h2 className="text-2xl font-semibold text-sky-300 mb-4">Posts</h2>
-          {postResults.length > 0 ? (
-            <div className="space-y-6">
-              {postResults.map(post => (
-                <PostItem
-                  key={post._id}
-                  post={post}
-                />
-              ))}
-            </div>
-          ) : (
-            !error && !loadingPosts && <p className="text-gray-500 italic">No posts found matching your query.</p>
-          )}
-        </section>
-      )}
+      {/* Posts */}
+      <section>
+        <SectionHeader label="Posts" count={postResults.length} />
+        {loadingPosts && <LoadingDots />}
+        {!loadingPosts && postResults.length === 0 && (
+          <p
+            style={{
+              fontSize: "0.85rem",
+              color: "var(--text-dim)",
+              fontStyle: "italic",
+            }}
+          >
+            No posts found.
+          </p>
+        )}
+        {!loadingPosts &&
+          postResults.length > 0 &&
+          postResults.map((post) => <PostItem key={post._id} post={post} />)}
+      </section>
     </div>
   );
 };
+
+const SectionHeader = ({ label, count }) => (
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "0.75rem",
+      marginBottom: "1rem",
+    }}
+  >
+    <h2
+      style={{
+        fontFamily: "var(--font-display)",
+        fontWeight: 700,
+        fontSize: "1rem",
+        color: "var(--text-primary)",
+        margin: 0,
+      }}
+    >
+      {label}
+    </h2>
+    {count > 0 && (
+      <span
+        style={{
+          background: "rgba(185,244,61,0.08)",
+          color: "var(--accent-green)",
+          fontSize: "0.68rem",
+          fontWeight: 600,
+          padding: "0.15rem 0.5rem",
+          borderRadius: "999px",
+          border: "1px solid rgba(185,244,61,0.15)",
+        }}
+      >
+        {count}
+      </span>
+    )}
+  </div>
+);
+
+const LoadingDots = () => (
+  <p
+    style={{
+      fontSize: "0.85rem",
+      color: "var(--text-muted)",
+      padding: "0.5rem 0",
+    }}
+  >
+    Searching...
+  </p>
+);
 
 export default SearchResultsPage;
