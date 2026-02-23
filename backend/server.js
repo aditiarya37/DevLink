@@ -19,10 +19,15 @@ connectDB();
 const app = express();
 
 const corsOptions = {
-  origin: true,
+  // Allows the frontend URL in production and localhost in development
+  origin:
+    process.env.NODE_ENV === "production"
+      ? process.env.FRONTEND_URL
+      : "http://localhost:5173",
   credentials: true,
   optionsSuccessStatus: 200,
 };
+app.use(cors(corsOptions));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(passport.initialize());
@@ -62,6 +67,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  // Adding "0.0.0.0" helps Render's health checks
+  console.log(`Server is running on port ${PORT}`);
 });

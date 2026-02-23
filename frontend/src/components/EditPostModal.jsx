@@ -52,6 +52,19 @@ const EditPostModal = ({ postToEdit, onClose, onPostUpdated }) => {
     }
   }, [postToEdit]);
 
+  // Lock body scroll + Escape to close
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => {
+      document.body.style.overflow = "";
+      document.removeEventListener("keydown", handler);
+    };
+  }, [onClose]);
+
   const fetchUsersForMention = useCallback(
     async (query, callback) => {
       if (!query || query.length < 1) return callback([]);

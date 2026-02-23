@@ -16,8 +16,26 @@ const EditCommentModal = ({
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
-    if (commentToEdit) setText(commentToEdit.text || "");
+    if (commentToEdit)
+      setText(commentToEdit.text || commentToEdit.content || "");
   }, [commentToEdit]);
+
+  // Prevent body scroll while open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,8 +69,36 @@ const EditCommentModal = ({
   if (!commentToEdit) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    /* Fixed, perfectly centered, always visible */
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0, 0, 0, 0.82)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1.25rem",
+        animation: "overlayIn 0.2s ease both",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-card)",
+          borderRadius: "var(--radius-xl)",
+          boxShadow: "var(--shadow-modal)",
+          width: "100%",
+          maxWidth: "480px",
+          animation: "modalIn 0.35s var(--ease-expo) both",
+          overflow: "hidden",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div
           style={{
@@ -69,6 +115,7 @@ const EditCommentModal = ({
               fontWeight: 700,
               fontSize: "1.05rem",
               color: "var(--text-primary)",
+              margin: 0,
             }}
           >
             Edit Comment
@@ -79,8 +126,8 @@ const EditCommentModal = ({
               background: "rgba(255,255,255,0.06)",
               border: "none",
               color: "var(--text-muted)",
-              width: "28px",
-              height: "28px",
+              width: "30px",
+              height: "30px",
               borderRadius: "50%",
               cursor: "pointer",
               display: "flex",
@@ -90,7 +137,7 @@ const EditCommentModal = ({
               transition: "background 200ms, color 200ms",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+              e.currentTarget.style.background = "rgba(255,255,255,0.12)";
               e.currentTarget.style.color = "var(--text-primary)";
             }}
             onMouseLeave={(e) => {
@@ -127,7 +174,7 @@ const EditCommentModal = ({
             </div>
           )}
           <div>
-            <label className="input-label">Comment Text</label>
+            <label className="input-label">Comment</label>
             <textarea
               rows="4"
               value={text}
@@ -137,7 +184,12 @@ const EditCommentModal = ({
               }}
               required
               className="input-field"
-              style={{ resize: "none", fontSize: "0.875rem", lineHeight: 1.55 }}
+              autoFocus
+              style={{
+                resize: "vertical",
+                fontSize: "0.875rem",
+                lineHeight: 1.55,
+              }}
             />
           </div>
           <div

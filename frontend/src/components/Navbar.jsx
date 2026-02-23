@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import NotificationList from "./NotificationList";
+import { motion } from "framer-motion";
 
 const Navbar = () => {
   const {
@@ -11,34 +12,23 @@ const Navbar = () => {
     loading: authLoading,
     unreadNotificationCount,
   } = useAuth();
+
   const navigate = useNavigate();
+
   const [showNotificationsDropdown, setShowNotificationsDropdown] =
     useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const notificationDropdownRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
 
+  const customEase = [0.16, 1, 0.3, 1];
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-    setMenuOpen(false);
-  };
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery("");
-      setMenuOpen(false);
-    }
-  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -46,8 +36,8 @@ const Navbar = () => {
         notificationDropdownRef.current &&
         !notificationDropdownRef.current.contains(event.target)
       ) {
-        const bellButton = document.getElementById("notifications-menu-button");
-        if (bellButton && !bellButton.contains(event.target)) {
+        const bellBtn = document.getElementById("notifications-menu-button");
+        if (bellBtn && !bellBtn.contains(event.target)) {
           setShowNotificationsDropdown(false);
         }
       }
@@ -56,33 +46,88 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (menuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
     }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [menuOpen]);
+  };
 
   if (authLoading && isAuthenticated === null) {
     return (
-      <nav style={navWrapperStyle(false)}>
-        <div style={navInnerStyle}>
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+          background: "rgba(15,15,18,0)",
+          padding: "1rem 1.5rem",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1200px",
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <Logo />
           <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
             Loading...
           </span>
         </div>
-      </nav>
+      </div>
     );
   }
 
+  const navState = scrolled ? "scrolled" : "top";
+
+  const navVariants = {
+    top: {
+      opacity: 1,
+      y: 0,
+      backgroundColor: "rgba(22, 22, 26, 0.75)",
+      backdropFilter: "blur(20px)",
+      WebkitBackdropFilter: "blur(20px)",
+      borderColor: "rgba(255, 255, 255, 0.1)",
+      boxShadow: "0 2px 16px rgba(0, 0, 0, 0.2)",
+      padding: "0.75rem 1rem 0.75rem 1.5rem",
+      maxWidth: "1100px",
+    },
+    scrolled: {
+      opacity: 1,
+      y: 0,
+      backgroundColor: "rgba(15, 15, 18, 0.92)",
+      backdropFilter: "blur(20px)",
+      WebkitBackdropFilter: "blur(20px)",
+      borderColor: "rgba(255, 255, 255, 0.1)",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+      padding: "0.45rem 0.6rem 0.45rem 1.25rem",
+      maxWidth: "780px",
+    },
+  };
+
+  const navTransition = {
+    opacity: { duration: 0.4, ease: customEase },
+    y: { duration: 0.4, ease: customEase },
+    backgroundColor: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] },
+    borderColor: { duration: 0.45, ease: [0.25, 0.1, 0.25, 1] },
+    boxShadow: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+    backdropFilter: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
+    maxWidth: { type: "spring", stiffness: 220, damping: 32, mass: 1 },
+    padding: { duration: 0.45, ease: customEase },
+  };
+
   return (
     <>
-      {/* ── COMPACT PILL NAVBAR (default) ── */}
       <div
         style={{
           position: "fixed",
@@ -96,39 +141,49 @@ const Navbar = () => {
           pointerEvents: "none",
         }}
       >
-        <nav
+        <motion.nav
+          initial={navState}
+          animate={navState}
+          variants={navVariants}
+          transition={navTransition}
           style={{
-            pointerEvents: "all",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: "1.5rem",
-            background: scrolled
-              ? "rgba(15, 15, 18, 0.92)"
-              : "rgba(22, 22, 26, 0.75)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid var(--border-subtle)",
+            borderStyle: "solid",
+            borderWidth: "1px",
             borderRadius: "999px",
-            padding: "0.45rem 0.6rem 0.45rem 1.25rem",
-            transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: scrolled
-              ? "0 8px 32px rgba(0, 0, 0, 0.4)"
-              : "0 2px 16px rgba(0, 0, 0, 0.2)",
             width: "100%",
-            maxWidth: "780px",
+            pointerEvents: "all",
+            willChange:
+              "transform, max-width, background-color, backdrop-filter, opacity",
           }}
         >
           <Logo />
 
-          {/* Search – hidden on small screens */}
-          <form
+          {/* Search — collapses when scrolled */}
+          <motion.form
             onSubmit={handleSearchSubmit}
+            animate={{
+              maxWidth: scrolled ? 0 : 320,
+              opacity: scrolled ? 0 : 1,
+            }}
+            transition={{
+              maxWidth: {
+                type: "spring",
+                stiffness: 220,
+                damping: 32,
+                mass: 1,
+              },
+              opacity: { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] },
+            }}
             style={{
               flex: 1,
-              maxWidth: "280px",
               display: "flex",
-              gap: "0",
+              overflow: "hidden",
+              margin: 0,
+              padding: 0,
             }}
             className="hidden-mobile"
           >
@@ -137,6 +192,7 @@ const Navbar = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search DevLink..."
+              tabIndex={scrolled ? -1 : 0}
               style={{
                 background: "rgba(255,255,255,0.05)",
                 border: "1px solid var(--border-subtle)",
@@ -147,6 +203,7 @@ const Navbar = () => {
                 padding: "0.4rem 1rem",
                 outline: "none",
                 width: "100%",
+                minWidth: "200px",
                 transition: "border-color 200ms, background 200ms",
               }}
               onFocus={(e) => {
@@ -158,11 +215,10 @@ const Navbar = () => {
                 e.target.style.background = "rgba(255,255,255,0.05)";
               }}
             />
-          </form>
+          </motion.form>
 
-          {/* Right side controls */}
+          {/* Right-side links */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            {/* Home link */}
             <NavLink
               to="/"
               end
@@ -207,8 +263,6 @@ const Navbar = () => {
                       e.currentTarget.style.color = "var(--text-muted)";
                       e.currentTarget.style.background = "transparent";
                     }}
-                    aria-label="Notifications"
-                    aria-expanded={showNotificationsDropdown}
                   >
                     <BellIcon />
                     {unreadNotificationCount > 0 && (
@@ -325,7 +379,6 @@ const Navbar = () => {
                   )}
                 </div>
 
-                {/* Profile link */}
                 <NavLink
                   to={
                     user.username
@@ -369,8 +422,30 @@ const Navbar = () => {
             ) : (
               <>
                 <NavLink
+                  to="/feed"
+                  style={({ isActive }) => ({
+                    ...navLinkStyle,
+                    color: isActive
+                      ? "var(--text-primary)"
+                      : "var(--text-muted)",
+                    background: isActive
+                      ? "rgba(255,255,255,0.06)"
+                      : "transparent",
+                  })}
+                >
+                  Feed
+                </NavLink>
+                <NavLink
                   to="/login"
-                  style={{ ...navLinkStyle, color: "var(--text-muted)" }}
+                  style={({ isActive }) => ({
+                    ...navLinkStyle,
+                    color: isActive
+                      ? "var(--text-primary)"
+                      : "var(--text-muted)",
+                    background: isActive
+                      ? "rgba(255,255,255,0.06)"
+                      : "transparent",
+                  })}
                 >
                   Login
                 </NavLink>
@@ -384,10 +459,10 @@ const Navbar = () => {
               </>
             )}
           </div>
-        </nav>
+        </motion.nav>
       </div>
 
-      {/* Spacer for fixed navbar */}
+      {/* Spacer to push page content below the fixed navbar */}
       <div style={{ height: "80px" }} />
 
       <style>{`
@@ -397,6 +472,21 @@ const Navbar = () => {
       `}</style>
     </>
   );
+};
+
+/* ── Shared sub-components ── */
+
+const navLinkStyle = {
+  fontFamily: "var(--font-body)",
+  fontWeight: 500,
+  fontSize: "0.82rem",
+  color: "var(--text-muted)",
+  textDecoration: "none",
+  padding: "0.4rem 0.75rem",
+  borderRadius: "999px",
+  transition: "color 200ms, background 200ms",
+  whiteSpace: "nowrap",
+  display: "block",
 };
 
 const Logo = () => (
@@ -428,36 +518,6 @@ const Logo = () => (
     DevLink
   </Link>
 );
-
-const navWrapperStyle = (scrolled) => ({
-  position: "sticky",
-  top: 0,
-  zIndex: 100,
-  background: "rgba(15, 15, 18, 0.9)",
-  backdropFilter: "blur(20px)",
-  borderBottom: "1px solid var(--border-subtle)",
-  padding: "1rem 1.5rem",
-});
-
-const navInnerStyle = {
-  maxWidth: "1200px",
-  margin: "0 auto",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-};
-
-const navLinkStyle = {
-  fontFamily: "var(--font-body)",
-  fontWeight: 500,
-  fontSize: "0.82rem",
-  color: "var(--text-muted)",
-  textDecoration: "none",
-  padding: "0.4rem 0.75rem",
-  borderRadius: "999px",
-  transition: "color 200ms, background 200ms",
-  whiteSpace: "nowrap",
-};
 
 const BellIcon = () => (
   <svg
