@@ -19,15 +19,14 @@ connectDB();
 const app = express();
 
 const corsOptions = {
-  // Allows the frontend URL in production and localhost in development
+  // Check if we are in production, otherwise default to localhost
   origin:
     process.env.NODE_ENV === "production"
-      ? process.env.FRONTEND_URL
+      ? "https://devlink-umber.vercel.app"
       : "http://localhost:5173",
   credentials: true,
   optionsSuccessStatus: 200,
 };
-app.use(cors(corsOptions));
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(passport.initialize());
