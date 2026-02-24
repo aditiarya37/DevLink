@@ -23,9 +23,10 @@ const AuthStateWatcher = () => {
 };
 
 /**
- * NavbarGuard lives inside <Router> so useLocation() works correctly.
- * GlobalFeedPage is at "/feed" and owns its own navbar — suppress the
- * shared Navbar there to prevent two navbars rendering at once.
+ * NavbarGuard renders the shared Navbar on every route EXCEPT /feed.
+ * GlobalFeedPage renders its own <Navbar expandOnScroll /> instance so
+ * that it can opt in to the "expand on scroll" behaviour without
+ * affecting any other page.
  */
 const NavbarGuard = () => {
   const { pathname } = useLocation();

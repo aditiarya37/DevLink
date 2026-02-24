@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useAuth } from "../context/AuthContext";
-import PostItem from "../components/PostItem";
-import NotificationList from "../components/NotificationList";
 import { motion, AnimatePresence } from "framer-motion";
+import PostItem from "../components/PostItem";
+import Navbar from "../components/Navbar";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -464,81 +463,96 @@ const RightSidebar = () => (
 );
 
 /* ─────────────────────────────────────────────────────────
-   BELL ICON
+   BACK TO TOP — bottom-right floating button
+   Click triggers a smooth JS-driven scroll with a custom
+   ease curve, plus the button plays a launch animation.
 ───────────────────────────────────────────────────────── */
-const BellIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-  </svg>
-);
+function smoothScrollToTop() {
+  const start = window.scrollY;
+  const duration = Math.min(600 + start * 0.18, 1200); // scales with distance
+  const startTime = performance.now();
+  // Expo ease-out: fast start, graceful landing
+  const ease = (t) => 1 - Math.pow(1 - t, 5);
 
-/* ─────────────────────────────────────────────────────────
-   BACK TO TOP BUTTON
-   Appears at top-right when scrolled down, matching the
-   pill style of the collapsed navbar.
-───────────────────────────────────────────────────────── */
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    window.scrollTo(0, start * (1 - ease(progress)));
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 const BackToTopButton = ({ visible }) => {
-  const EASE_IN = [0.25, 1, 0.3, 1];
+  const [launching, setLaunching] = useState(false);
+
+  const handleClick = () => {
+    setLaunching(true);
+    smoothScrollToTop();
+    // Reset launch state after animation completes
+    setTimeout(() => setLaunching(false), 600);
+  };
+
   return (
     <AnimatePresence>
       {visible && (
         <motion.button
           key="back-to-top"
-          initial={{ opacity: 0, x: 30 }}
+          initial={{ opacity: 0, y: 20, scale: 0.85 }}
           animate={{
             opacity: 1,
-            x: 0,
-            transition: { duration: 0.38, ease: EASE_IN },
+            y: 0,
+            scale: 1,
+            transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
           }}
-          exit={{ opacity: 0, x: 30, transition: { duration: 0.22 } }}
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          exit={{
+            opacity: 0,
+            y: 14,
+            scale: 0.88,
+            transition: { duration: 0.22, ease: [0.4, 0, 1, 1] },
+          }}
+          whileHover={{ scale: 1.08, y: -3 }}
+          whileTap={{ scale: 0.93 }}
+          onClick={handleClick}
           style={{
             position: "fixed",
-            top: "20px",
-            right: "24px",
-            zIndex: 1000,
-            height: "68px",
-            padding: "0 1.5rem",
-            borderRadius: "34px",
-            background: "rgba(13, 13, 16, 0.92)",
+            bottom: "28px",
+            right: "28px",
+            zIndex: 500,
+            width: "48px",
+            height: "48px",
+            borderRadius: "50%",
+            background: launching
+              ? "rgba(185,244,61,0.15)"
+              : "rgba(13, 13, 16, 0.82)",
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
-            border: "1px solid rgba(255,255,255,0.10)",
-            boxShadow: "0 8px 36px rgba(0,0,0,0.52)",
-            color: "var(--text-primary)",
-            fontFamily: "var(--font-body)",
-            fontWeight: 600,
-            fontSize: "0.9rem",
+            border: launching
+              ? "1px solid rgba(185,244,61,0.45)"
+              : "1px solid rgba(255,255,255,0.11)",
+            boxShadow: launching
+              ? "0 0 24px rgba(185,244,61,0.25), 0 4px 24px rgba(0,0,0,0.4)"
+              : "0 4px 24px rgba(0,0,0,0.4)",
+            color: launching ? "var(--accent-green)" : "var(--text-primary)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
-            transition: "background 0.2s, border-color 0.2s, color 0.2s",
+            justifyContent: "center",
+            transition:
+              "background 0.25s, border-color 0.25s, color 0.25s, box-shadow 0.25s",
+            overflow: "hidden",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(185,244,61,0.1)";
-            e.currentTarget.style.borderColor = "rgba(185,244,61,0.35)";
-            e.currentTarget.style.color = "var(--accent-green)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(13, 13, 16, 0.92)";
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
-            e.currentTarget.style.color = "var(--text-primary)";
-          }}
+          aria-label="Scroll to top"
+          title="Back to top"
         >
-          <svg
-            width="16"
-            height="16"
+          {/* Arrow — slides up and reappears when launching */}
+          <motion.svg
+            key={launching ? "launching" : "idle"}
+            initial={launching ? { y: 10, opacity: 0 } : { y: 0, opacity: 1 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -547,985 +561,31 @@ const BackToTopButton = ({ visible }) => {
             strokeLinejoin="round"
           >
             <path d="M12 19V5M5 12l7-7 7 7" />
-          </svg>
-          Top
+          </motion.svg>
+
+          {/* Green ripple on click */}
+          <AnimatePresence>
+            {launching && (
+              <motion.span
+                key="ripple"
+                initial={{ scale: 0, opacity: 0.6 }}
+                animate={{ scale: 3.5, opacity: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.55, ease: "easeOut" }}
+                style={{
+                  position: "absolute",
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "50%",
+                  background: "rgba(185,244,61,0.35)",
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+          </AnimatePresence>
         </motion.button>
       )}
     </AnimatePresence>
-  );
-};
-
-/* ═══════════════════════════════════════════════════════════
-   GLOBAL FEED NAVBAR
-═══════════════════════════════════════════════════════════ */
-const GlobalFeedNavbar = ({ onScrollChange }) => {
-  const { user, isAuthenticated, logout, unreadNotificationCount } = useAuth();
-  const navigate = useNavigate();
-
-  const [navState, setNavState] = useState("center");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const notifRef = useRef(null);
-  const wasScrolled = useRef(false);
-
-  const SPRING = { type: "spring", stiffness: 260, damping: 30, mass: 0.9 };
-  const EASE_IN = [0.25, 1, 0.3, 1];
-  const EASE_OUT = [1.0, 0, 0.2, 1];
-
-  useEffect(() => {
-    const onScroll = () => {
-      const scrolled = window.scrollY > 80;
-      if (scrolled && !wasScrolled.current) {
-        setNavState("icon");
-        setShowNotifDropdown(false);
-        onScrollChange?.(true);
-      } else if (!scrolled && wasScrolled.current) {
-        setNavState("center");
-        setShowNotifDropdown(false);
-        onScrollChange?.(false);
-      }
-      wasScrolled.current = scrolled;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [onScrollChange]);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setShowNotifDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery("");
-    }
-  };
-  const toggleOpen = () => {
-    setNavState((s) => (s === "open" ? "icon" : "open"));
-  };
-
-  const isCenter = navState === "center";
-  const isScrolled = navState === "icon" || navState === "open";
-  const isOpen = navState === "open";
-
-  const mkLink = (isActive) => ({
-    fontFamily: "var(--font-body)",
-    fontWeight: 500,
-    fontSize: "0.9rem",
-    textDecoration: "none",
-    padding: "0.45rem 0.85rem",
-    borderRadius: "999px",
-    transition: "color 200ms, background 200ms",
-    whiteSpace: "nowrap",
-    display: "block",
-    color: isActive ? "var(--text-primary)" : "var(--text-muted)",
-    background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
-  });
-
-  const navItems =
-    isAuthenticated && user
-      ? [
-          {
-            id: "logo",
-            node: (
-              <Link
-                to="/"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 800,
-                  fontSize: "1.05rem",
-                  color: "var(--text-primary)",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  padding: "0 0.5rem 0 0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: "19px",
-                    height: "19px",
-                    background: "var(--accent-green)",
-                    borderRadius: "5px",
-                    flexShrink: 0,
-                  }}
-                />
-                DevLink
-              </Link>
-            ),
-          },
-          {
-            id: "search",
-            node: (
-              <form onSubmit={handleSearchSubmit} style={{ display: "flex" }}>
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
-                  style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "999px",
-                    color: "var(--text-primary)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: "0.85rem",
-                    padding: "0.4rem 1rem",
-                    outline: "none",
-                    width: "160px",
-                    transition: "border-color 200ms, background 200ms",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "rgba(185,244,61,0.3)";
-                    e.target.style.background = "rgba(255,255,255,0.08)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "var(--border-subtle)";
-                    e.target.style.background = "rgba(255,255,255,0.05)";
-                  }}
-                />
-              </form>
-            ),
-          },
-          {
-            id: "home",
-            node: (
-              <NavLink to="/" end style={({ isActive }) => mkLink(isActive)}>
-                Home
-              </NavLink>
-            ),
-          },
-          {
-            id: "notifs",
-            isDropdown: true,
-            node: (
-              <div style={{ position: "relative" }} ref={notifRef}>
-                <button
-                  onClick={() => setShowNotifDropdown((p) => !p)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    padding: "0.45rem",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "color 200ms",
-                    position: "relative",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = "var(--text-primary)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = "var(--text-muted)";
-                  }}
-                >
-                  <BellIcon />
-                  {unreadNotificationCount > 0 && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: "2px",
-                        right: "2px",
-                        background: "var(--accent-green)",
-                        color: "#0a0a0d",
-                        fontSize: "0.6rem",
-                        fontWeight: 700,
-                        borderRadius: "50%",
-                        minWidth: "16px",
-                        height: "16px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "0 2px",
-                      }}
-                    >
-                      {unreadNotificationCount > 9
-                        ? "9+"
-                        : unreadNotificationCount}
-                    </span>
-                  )}
-                </button>
-                {showNotifDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      top: "calc(100% + 1rem)",
-                      width: "360px",
-                      background: "var(--bg-card)",
-                      border: "1px solid var(--border-card)",
-                      borderRadius: "var(--radius-lg)",
-                      boxShadow: "var(--shadow-modal)",
-                      overflow: "hidden",
-                      animation: "modalIn 0.25s var(--ease-expo) both",
-                      zIndex: 9999,
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: "1rem 1.25rem",
-                        borderBottom: "1px solid var(--border-subtle)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontFamily: "var(--font-display)",
-                          fontWeight: 600,
-                          fontSize: "0.9rem",
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        Notifications
-                      </span>
-                      {unreadNotificationCount > 0 && (
-                        <span
-                          style={{
-                            background: "rgba(185,244,61,0.12)",
-                            color: "var(--accent-green)",
-                            fontSize: "0.7rem",
-                            fontWeight: 600,
-                            padding: "0.15rem 0.5rem",
-                            borderRadius: "999px",
-                            border: "1px solid rgba(185,244,61,0.2)",
-                          }}
-                        >
-                          {unreadNotificationCount} new
-                        </span>
-                      )}
-                    </div>
-                    <NotificationList
-                      closeDropdown={() => setShowNotifDropdown(false)}
-                    />
-                  </div>
-                )}
-              </div>
-            ),
-          },
-          {
-            id: "profile",
-            node: (
-              <NavLink
-                to={
-                  user.username
-                    ? `/profile/${user.username.toLowerCase()}`
-                    : "/profile"
-                }
-                style={({ isActive }) => mkLink(isActive)}
-              >
-                {user.displayName || user.username}
-              </NavLink>
-            ),
-          },
-          {
-            id: "logout",
-            node: (
-              <button
-                onClick={handleLogout}
-                style={{
-                  ...mkLink(false),
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "#f87171";
-                  e.currentTarget.style.background = "rgba(239,68,68,0.08)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "var(--text-muted)";
-                  e.currentTarget.style.background = "transparent";
-                }}
-              >
-                Logout
-              </button>
-            ),
-          },
-        ]
-      : [
-          {
-            id: "logo",
-            node: (
-              <Link
-                to="/"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 800,
-                  fontSize: "1.05rem",
-                  color: "var(--text-primary)",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  padding: "0 0.5rem 0 0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: "19px",
-                    height: "19px",
-                    background: "var(--accent-green)",
-                    borderRadius: "5px",
-                    flexShrink: 0,
-                  }}
-                />
-                DevLink
-              </Link>
-            ),
-          },
-          {
-            id: "search",
-            node: (
-              <form onSubmit={handleSearchSubmit} style={{ display: "flex" }}>
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
-                  style={{
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "999px",
-                    color: "var(--text-primary)",
-                    fontFamily: "var(--font-body)",
-                    fontSize: "0.85rem",
-                    padding: "0.4rem 1rem",
-                    outline: "none",
-                    width: "160px",
-                    transition: "border-color 200ms, background 200ms",
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "rgba(185,244,61,0.3)";
-                    e.target.style.background = "rgba(255,255,255,0.08)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "var(--border-subtle)";
-                    e.target.style.background = "rgba(255,255,255,0.05)";
-                  }}
-                />
-              </form>
-            ),
-          },
-          {
-            id: "feed",
-            node: (
-              <NavLink to="/feed" style={({ isActive }) => mkLink(isActive)}>
-                Feed
-              </NavLink>
-            ),
-          },
-          {
-            id: "login",
-            node: (
-              <NavLink to="/login" style={({ isActive }) => mkLink(isActive)}>
-                Login
-              </NavLink>
-            ),
-          },
-          {
-            id: "join",
-            node: (
-              <Link
-                to="/register"
-                className="btn-primary"
-                style={{
-                  padding: "0.45rem 1.25rem",
-                  fontSize: "0.85rem",
-                  textDecoration: "none",
-                  display: "inline-block",
-                  borderRadius: "999px",
-                }}
-              >
-                Join
-              </Link>
-            ),
-          },
-        ];
-
-  // Exact copy of navLinkStyle from Navbar.jsx
-  const centerLinkStyle = {
-    fontFamily: "var(--font-body)",
-    fontWeight: 500,
-    fontSize: "0.82rem",
-    color: "var(--text-muted)",
-    textDecoration: "none",
-    padding: "0.4rem 0.75rem",
-    borderRadius: "999px",
-    transition: "color 200ms, background 200ms",
-    whiteSpace: "nowrap",
-    display: "block",
-  };
-
-  // Slightly slower stagger for expand/collapse
-  const itemVariants = {
-    enter: (i) => ({
-      opacity: 1,
-      width: "auto",
-      x: 0,
-      filter: "blur(0px)",
-      transition: { duration: 0.52, ease: EASE_IN, delay: i * 0.09 },
-    }),
-    exit: (i) => ({
-      opacity: 0,
-      width: 0,
-      x: -10,
-      filter: "blur(3px)",
-      transition: {
-        duration: 0.32,
-        ease: EASE_OUT,
-        delay: (navItems.length - 1 - i) * 0.07,
-      },
-    }),
-    initial: { opacity: 0, width: 0, x: -10, filter: "blur(3px)" },
-  };
-
-  const pillVariants = {
-    // Exact match to Navbar.jsx "top" variant — same bg, padding, maxWidth, borderRadius
-    center: {
-      left: "50%",
-      x: "-50%",
-      top: "16px",
-      width: "min(1100px, calc(100vw - 32px))",
-      height: "auto", // let padding define height, just like Navbar.jsx
-      borderRadius: "999px", // Navbar.jsx uses 999px, not 26px
-      backgroundColor: "rgba(22, 22, 26, 0.75)",
-      backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)",
-      borderColor: "rgba(255, 255, 255, 0.1)",
-      boxShadow: "0 2px 16px rgba(0, 0, 0, 0.2)",
-      // Navbar.jsx padding: "0.75rem 1rem 0.75rem 1.5rem"
-      paddingTop: "0.75rem",
-      paddingBottom: "0.75rem",
-      paddingLeft: "1.5rem",
-      paddingRight: "1rem",
-    },
-    icon: {
-      left: "24px",
-      x: "0%",
-      top: "20px",
-      width: "68px",
-      height: "68px",
-      borderRadius: "34px",
-      backgroundColor: "rgba(13, 13, 16, 0.92)",
-      backdropFilter: "blur(18px)",
-      WebkitBackdropFilter: "blur(18px)",
-      borderColor: "rgba(255,255,255,0.10)",
-      boxShadow: "0 8px 36px rgba(0,0,0,0.52)",
-      paddingTop: "0px",
-      paddingBottom: "0px",
-      paddingLeft: "0px",
-      paddingRight: "0px",
-    },
-    open: {
-      left: "24px",
-      x: "0%",
-      top: "20px",
-      width: "auto",
-      height: "68px",
-      borderRadius: "34px",
-      backgroundColor: "rgba(13, 13, 16, 0.92)",
-      backdropFilter: "blur(18px)",
-      WebkitBackdropFilter: "blur(18px)",
-      borderColor: "rgba(255,255,255,0.10)",
-      boxShadow: "0 8px 36px rgba(0,0,0,0.52)",
-      paddingTop: "0px",
-      paddingBottom: "0px",
-      paddingLeft: "0px",
-      paddingRight: "16px",
-    },
-  };
-
-  const pillTransition = {
-    // Slowed down: lower stiffness + higher mass = more leisurely spring
-    left: { ...SPRING, stiffness: 180, damping: 28, mass: 1.2 },
-    x: { ...SPRING, stiffness: 180, damping: 28, mass: 1.2 },
-    width: { ...SPRING, stiffness: 160, damping: 28, mass: 1.2 },
-    height: { ...SPRING, stiffness: 180, damping: 32, mass: 1.1 },
-    borderRadius: { duration: 0.6, ease: EASE_IN },
-    backgroundColor: { duration: 0.5, ease: [0.25, 0.1, 0.25, 1] },
-    boxShadow: { duration: 0.55 },
-    borderColor: { duration: 0.45 },
-    paddingTop: { duration: 0.5, ease: EASE_IN },
-    paddingBottom: { duration: 0.5, ease: EASE_IN },
-    paddingLeft: { duration: 0.5, ease: EASE_IN },
-    paddingRight: { duration: 0.5, ease: EASE_IN },
-    top: { ...SPRING, stiffness: 180, damping: 28, mass: 1.2 },
-  };
-
-  return (
-    <motion.div
-      animate={navState}
-      variants={pillVariants}
-      transition={pillTransition}
-      style={{
-        position: "fixed",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        border: "1px solid",
-        overflow: "visible",
-        willChange: "transform, left, width, height",
-      }}
-    >
-      {/* ══════════════════════════════════════════════════
-          CENTER STATE — pixel-perfect copy of Navbar.jsx
-          Same structure: Logo | search(flex-1) | right-links
-          Same gap: 1.5rem, justifyContent: space-between
-      ══════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {isCenter && (
-          <motion.div
-            key="center-nav"
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: 1,
-              transition: { duration: 0.55, delay: 0.2, ease: EASE_IN },
-            }}
-            exit={{ opacity: 0, transition: { duration: 0.2, ease: EASE_OUT } }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "1.5rem",
-              width: "100%",
-              minWidth: 0,
-            }}
-          >
-            {/* Logo — exact Navbar.jsx Logo component */}
-            <Link
-              to="/"
-              style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 800,
-                fontSize: "1.1rem",
-                color: "var(--text-primary)",
-                textDecoration: "none",
-                letterSpacing: "-0.03em",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                flexShrink: 0,
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "20px",
-                  height: "20px",
-                  background: "var(--accent-green)",
-                  borderRadius: "5px",
-                  flexShrink: 0,
-                }}
-              />
-              DevLink
-            </Link>
-
-            {/* Search — flex:1, centred, exact Navbar.jsx motion.form */}
-            <form
-              onSubmit={handleSearchSubmit}
-              style={{
-                flex: 1,
-                display: "flex",
-                overflow: "hidden",
-                margin: 0,
-                padding: 0,
-              }}
-            >
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search DevLink..."
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "999px",
-                  color: "var(--text-primary)",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "0.82rem",
-                  padding: "0.4rem 1rem",
-                  outline: "none",
-                  width: "100%",
-                  minWidth: "200px",
-                  transition: "border-color 200ms, background 200ms",
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = "rgba(185, 244, 61, 0.3)";
-                  e.target.style.background = "rgba(255,255,255,0.08)";
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = "var(--border-subtle)";
-                  e.target.style.background = "rgba(255,255,255,0.05)";
-                }}
-              />
-            </form>
-
-            {/* Right links — exact Navbar.jsx right-side div */}
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
-            >
-              {/* Home link — was missing before */}
-              <NavLink
-                to="/"
-                end
-                style={({ isActive }) => ({
-                  ...centerLinkStyle,
-                  color: isActive ? "var(--text-primary)" : "var(--text-muted)",
-                  background: isActive
-                    ? "rgba(255,255,255,0.06)"
-                    : "transparent",
-                })}
-              >
-                Home
-              </NavLink>
-
-              {isAuthenticated && user ? (
-                <>
-                  {/* Bell / notifications */}
-                  <div style={{ position: "relative" }} ref={notifRef}>
-                    <button
-                      id="gf-notifications-btn"
-                      onClick={() => setShowNotifDropdown((p) => !p)}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                        padding: "0.4rem",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        transition: "color 200ms, background 200ms",
-                        position: "relative",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "var(--text-primary)";
-                        e.currentTarget.style.background =
-                          "rgba(255,255,255,0.06)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "var(--text-muted)";
-                        e.currentTarget.style.background = "transparent";
-                      }}
-                    >
-                      <BellIcon />
-                      {unreadNotificationCount > 0 && (
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "2px",
-                            right: "2px",
-                            background: "var(--accent-green)",
-                            color: "#0a0a0d",
-                            fontSize: "0.6rem",
-                            fontWeight: 700,
-                            borderRadius: "50%",
-                            minWidth: "14px",
-                            height: "14px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            padding: "0 2px",
-                            animation: "pulse-green 2s infinite",
-                          }}
-                        >
-                          {unreadNotificationCount > 9
-                            ? "9+"
-                            : unreadNotificationCount}
-                        </span>
-                      )}
-                    </button>
-                    {showNotifDropdown && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          right: 0,
-                          top: "calc(100% + 0.75rem)",
-                          width: "360px",
-                          background: "var(--bg-card)",
-                          border: "1px solid var(--border-card)",
-                          borderRadius: "var(--radius-lg)",
-                          boxShadow: "var(--shadow-modal)",
-                          overflow: "hidden",
-                          animation: "modalIn 0.25s var(--ease-expo) both",
-                          zIndex: 9999,
-                        }}
-                      >
-                        <div
-                          style={{
-                            padding: "1rem 1.25rem",
-                            borderBottom: "1px solid var(--border-subtle)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: "var(--font-display)",
-                              fontWeight: 600,
-                              fontSize: "0.9rem",
-                              color: "var(--text-primary)",
-                            }}
-                          >
-                            Notifications
-                          </span>
-                          {unreadNotificationCount > 0 && (
-                            <span
-                              style={{
-                                background: "rgba(185,244,61,0.12)",
-                                color: "var(--accent-green)",
-                                fontSize: "0.7rem",
-                                fontWeight: 600,
-                                padding: "0.15rem 0.5rem",
-                                borderRadius: "999px",
-                                border: "1px solid rgba(185,244,61,0.2)",
-                              }}
-                            >
-                              {unreadNotificationCount} new
-                            </span>
-                          )}
-                        </div>
-                        <NotificationList
-                          closeDropdown={() => setShowNotifDropdown(false)}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Profile */}
-                  <NavLink
-                    to={
-                      user.username
-                        ? `/profile/${user.username.toLowerCase()}`
-                        : "/profile"
-                    }
-                    style={({ isActive }) => ({
-                      ...centerLinkStyle,
-                      color: isActive
-                        ? "var(--text-primary)"
-                        : "var(--text-muted)",
-                      background: isActive
-                        ? "rgba(255,255,255,0.06)"
-                        : "transparent",
-                    })}
-                  >
-                    {user.displayName || user.username}
-                  </NavLink>
-
-                  {/* Logout */}
-                  <button
-                    onClick={handleLogout}
-                    style={{
-                      ...centerLinkStyle,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "var(--text-muted)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = "#f87171";
-                      e.currentTarget.style.background = "rgba(239,68,68,0.08)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = "var(--text-muted)";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <NavLink
-                    to="/feed"
-                    style={({ isActive }) => ({
-                      ...centerLinkStyle,
-                      color: isActive
-                        ? "var(--text-primary)"
-                        : "var(--text-muted)",
-                      background: isActive
-                        ? "rgba(255,255,255,0.06)"
-                        : "transparent",
-                    })}
-                  >
-                    Feed
-                  </NavLink>
-                  <NavLink
-                    to="/login"
-                    style={({ isActive }) => ({
-                      ...centerLinkStyle,
-                      color: isActive
-                        ? "var(--text-primary)"
-                        : "var(--text-muted)",
-                      background: isActive
-                        ? "rgba(255,255,255,0.06)"
-                        : "transparent",
-                    })}
-                  >
-                    Login
-                  </NavLink>
-                  <Link
-                    to="/register"
-                    className="btn-primary"
-                    style={{ padding: "0.45rem 1.1rem", fontSize: "0.82rem" }}
-                  >
-                    Join
-                  </Link>
-                </>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* SCROLLED STATE */}
-      <AnimatePresence>
-        {isScrolled && (
-          <motion.div
-            key="scrolled-nav"
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: 1,
-              transition: { duration: 0.22, ease: EASE_IN },
-            }}
-            exit={{ opacity: 0, transition: { duration: 0.15 } }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              height: "100%",
-              flexShrink: 0,
-            }}
-          >
-            <motion.button
-              onClick={toggleOpen}
-              whileTap={{ scale: 0.9 }}
-              style={{
-                width: "68px",
-                height: "68px",
-                borderRadius: "50%",
-                background: "transparent",
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                flexShrink: 0,
-                color: isOpen ? "var(--accent-green)" : "var(--text-primary)",
-                transition: "color 0.2s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--accent-green)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = isOpen
-                  ? "var(--accent-green)"
-                  : "var(--text-primary)";
-              }}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {isOpen ? (
-                  <motion.svg
-                    key="close"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{
-                      rotate: 0,
-                      opacity: 1,
-                      transition: { duration: 0.22, ease: EASE_IN },
-                    }}
-                    exit={{
-                      rotate: 90,
-                      opacity: 0,
-                      transition: { duration: 0.18 },
-                    }}
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </motion.svg>
-                ) : (
-                  <motion.svg
-                    key="menu"
-                    initial={{ rotate: 90, opacity: 0 }}
-                    animate={{
-                      rotate: 0,
-                      opacity: 1,
-                      transition: { duration: 0.22, ease: EASE_IN },
-                    }}
-                    exit={{
-                      rotate: -90,
-                      opacity: 0,
-                      transition: { duration: 0.18 },
-                    }}
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="4" y1="8" x2="20" y2="8" />
-                    <line x1="4" y1="16" x2="14" y2="16" />
-                  </motion.svg>
-                )}
-              </AnimatePresence>
-            </motion.button>
-
-            <AnimatePresence>
-              {isOpen &&
-                navItems.map((item, i) => (
-                  <motion.div
-                    key={item.id}
-                    custom={i}
-                    initial="initial"
-                    animate="enter"
-                    exit="exit"
-                    variants={itemVariants}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      flexShrink: 0,
-                      overflow: item.isDropdown ? "visible" : "hidden",
-                    }}
-                  >
-                    {item.node}
-                  </motion.div>
-                ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
   );
 };
 
@@ -1534,11 +594,18 @@ const GlobalFeedNavbar = ({ onScrollChange }) => {
 ═══════════════════════════════════════════════════════════ */
 const GlobalFeedPage = () => {
   const [pageVisible, setPageVisible] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setPageVisible(true), 50);
     return () => clearTimeout(t);
+  }, []);
+
+  // Track scroll for the bottom-right back-to-top button
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 300);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   const fetchGlobal = useCallback(async (pageNum) => {
@@ -1557,7 +624,6 @@ const GlobalFeedPage = () => {
         .gf-wrap {
           display: grid;
           grid-template-columns: 280px 1fr 280px;
-          /* gap between columns */
           gap: 0;
           align-items: start;
           width: 100%;
@@ -1566,8 +632,6 @@ const GlobalFeedPage = () => {
         .gf-sidebar-col {
           position: sticky;
           top: 96px;
-          /* outer left/right padding matches feed-col side padding (1.5rem)
-             so the gap from page edge = gap between columns */
           padding: 2rem 1.5rem;
         }
         .gf-feed-col {
@@ -1587,10 +651,16 @@ const GlobalFeedPage = () => {
         }
       `}</style>
 
-      <GlobalFeedNavbar onScrollChange={setIsScrolled} />
-      <BackToTopButton visible={isScrolled} />
+      {/*
+        Navbar with expandOnScroll=true:
+        - At top of page → centred pill (same as every other page)
+        - On scroll      → stretches to full viewport width, hugs edges
+        Other pages are unaffected because they render Navbar without this prop.
+      */}
+      <Navbar expandOnScroll />
 
-      <div style={{ height: "84px" }} />
+      {/* Bottom-right "Back to top" — appears after scrolling 300px */}
+      <BackToTopButton visible={showBackToTop} />
 
       <div
         className="gf-wrap"
