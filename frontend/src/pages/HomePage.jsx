@@ -97,6 +97,9 @@ const ArcCarousel = ({ posts }) => {
   const rafRef = useRef(null);
   const jumpLock = useRef(false);
 
+  const isAutoPaused = useRef(false);
+  const resumeTimerRef = useRef(null);
+
   const CARD_W = 320;
   const CARD_H = 420;
   const ARC_SPREAD = 380;
@@ -164,6 +167,8 @@ const ArcCarousel = ({ posts }) => {
 
   const onPointerDown = (e) => {
     cancelAnimationFrame(rafRef.current);
+    clearTimeout(resumeTimerRef.current);
+    isAutoPaused.current = true;
     setIsDragging(true);
     dragStartX.current = e.clientX;
     dragStartOffset.current = dragOffset;
@@ -187,12 +192,28 @@ const ArcCarousel = ({ posts }) => {
     if (!isDragging) return;
     setIsDragging(false);
     rafRef.current = requestAnimationFrame(inertiaLoop);
+    clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      isAutoPaused.current = false;
+    }, 6000);
   };
 
   const goTo = (dotIdx) => {
     setActiveIndex(N + dotIdx);
     setDragOffset(0);
   };
+
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isAutoPaused.current) return;
+      setActiveIndex((prev) => prev + 1);
+      setTimeout(() => loopCorrect(activeIndexRef.current + 1), 0);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [N, loopCorrect]);
 
   const activeDot = ((activeIndex % N) + N) % N;
 
@@ -232,7 +253,7 @@ const ArcCarousel = ({ posts }) => {
             zIndex: 200,
             pointerEvents: "none",
             background:
-              "linear-gradient(90deg, rgba(10,10,13,0.95) 0%, transparent 12%, transparent 88%, rgba(10,10,13,0.95) 100%)",
+              "linear-gradient(90deg, var(--bg-1) 0%, transparent 12%, transparent 88%, var(--bg-1) 100%)",
           }}
         />
 
@@ -282,8 +303,9 @@ const ArcCarousel = ({ posts }) => {
                   ...cs,
                   transitionProperty: isDragging
                     ? "none"
-                    : "border-color,box-shadow,opacity",
-                  transitionDuration: "300ms",
+                    : "transform,border-color,box-shadow,opacity",
+                  transitionDuration: isDragging ? "0ms" : "500ms",
+                  transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
                 }}
               >
                 {/* Header */}
@@ -605,7 +627,7 @@ const ArcCarousel = ({ posts }) => {
           fontFamily: "var(--font-body)",
         }}
       >
-        ← drag to explore →
+        auto-scrolling · drag to explore
       </p>
     </div>
   );
